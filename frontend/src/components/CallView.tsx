@@ -1,5 +1,8 @@
-import { DisconnectButton, RoomAudioRenderer, useDataChannel } from '@livekit/components-react';
+import { RoomAudioRenderer, useDataChannel, useRoomContext } from '@livekit/components-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { LiveTranscript } from './LiveTranscript';
+import { cn } from '@/lib/utils';
 
 export type ClubYardages = Record<string, number>;
 
@@ -11,6 +14,23 @@ interface UserProfileUpdate {
 interface CallViewProps {
   clubYardages: ClubYardages;
   onProfileUpdate?: (profile: { clubYardages?: ClubYardages }) => void;
+}
+
+function EndCallButton({ className }: { className?: string }) {
+  const room = useRoomContext();
+  return (
+    <Button
+      type="button"
+      size="lg"
+      className={cn(
+        'min-h-12 min-w-[120px] border-0 bg-red-600 text-white hover:bg-red-700',
+        className
+      )}
+      onClick={() => void room.disconnect()}
+    >
+      End Call
+    </Button>
+  );
 }
 
 export function CallView({ clubYardages, onProfileUpdate }: CallViewProps) {
@@ -27,63 +47,35 @@ export function CallView({ clubYardages, onProfileUpdate }: CallViewProps) {
       // ignore
     }
   });
+
   return (
     <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100dvh',
-        padding: 'var(--safe-top) 1rem 1rem',
-        paddingBottom: 'calc(1rem + var(--safe-bottom))',
-      }}
+      className={cn(
+        'flex min-h-0 h-dvh flex-col px-4 pt-[var(--safe-top)] pb-[calc(1rem+var(--safe-bottom))]'
+      )}
     >
-      {/* Plays remote agent TTS (and any other remote audio) in the browser */}
       <RoomAudioRenderer />
-      <header
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '1rem',
-        }}
-      >
-        <h2 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--color-accent)' }}>
-          Chip
-        </h2>
-        <DisconnectButton
-          style={{
-            padding: '0.75rem 1.25rem',
-            fontSize: '1rem',
-            borderRadius: '0.5rem',
-            background: '#dc2626',
-            color: 'white',
-            border: 'none',
-            cursor: 'pointer',
-            minHeight: '48px',
-            minWidth: '120px',
-          }}
-        >
-          End Call
-        </DisconnectButton>
+      <header className="mb-4 flex shrink-0 items-center justify-between">
+        <h2 className="text-xl font-semibold text-primary">Chip</h2>
+        <EndCallButton />
       </header>
 
       <LiveTranscript />
 
-      <div
-        style={{
-          marginTop: 'auto',
-          paddingTop: '1rem',
-          fontSize: '0.8rem',
-          color: 'var(--color-muted)',
-        }}
-      >
-        {Object.keys(clubYardages).length > 0 ? (
-          <span>Your yardages: {JSON.stringify(clubYardages)}</span>
-        ) : (
-          <span>Tell Chip your club distances anytime during the call.</span>
-        )}
-      </div>
+      <Card className="mt-auto shrink-0 border-border/60 bg-card/60 py-3 shadow-none">
+        <CardContent className="px-4 py-0">
+          {Object.keys(clubYardages).length > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Your yardages:{' '}
+              <span className="font-mono text-foreground/90">{JSON.stringify(clubYardages)}</span>
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Tell Chip your club distances anytime during the call.
+            </p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
-

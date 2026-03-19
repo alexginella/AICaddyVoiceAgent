@@ -89,7 +89,7 @@ function App() {
       audio={true}
       video={false}
       onDisconnected={() => handleEndCall()}
-      style={{ height: '100dvh' }}
+      className="h-dvh"
     >
       <CallView
         clubYardages={userProfile?.clubYardages ?? {}}

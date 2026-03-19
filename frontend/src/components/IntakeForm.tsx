@@ -1,4 +1,16 @@
 import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 
 export type UserProfile = {
   handicap?: number;
@@ -68,161 +80,143 @@ export function IntakeForm({
     onSubmit(profile);
   };
 
+  const isLocked = Boolean(loading || disabled);
+
   return (
-    <form
-      onSubmit={handleSubmit}
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '1rem',
-        maxWidth: '320px',
-        width: '100%',
-      }}
-    >
-      <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.9rem' }}>
-        Handicap (optional)
-        <input
+    <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="handicap">Handicap (optional)</Label>
+        <Input
+          id="handicap"
           type="number"
           min={0}
           max={54}
           placeholder="e.g. 12"
           value={profile.handicap ?? ''}
+          disabled={isLocked}
           onChange={(e) =>
             setProfile((p) => ({
               ...p,
               handicap: e.target.value ? parseInt(e.target.value, 10) : undefined,
             }))
           }
-          style={inputStyle}
+          className="h-11 md:h-10"
         />
-      </label>
+      </div>
 
-      <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.9rem' }}>
-        Age (optional)
-        <input
+      <div className="space-y-2">
+        <Label htmlFor="age">Age (optional)</Label>
+        <Input
+          id="age"
           type="number"
           min={1}
           max={120}
           placeholder="e.g. 35"
           value={profile.age ?? ''}
+          disabled={isLocked}
           onChange={(e) =>
             setProfile((p) => ({
               ...p,
               age: e.target.value ? parseInt(e.target.value, 10) : undefined,
             }))
           }
-          style={inputStyle}
+          className="h-11 md:h-10"
         />
-      </label>
+      </div>
 
-      <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.9rem' }}>
-        Handedness
-        <select
+      <div className="space-y-2">
+        <Label htmlFor="handedness">Handedness</Label>
+        <Select
           value={profile.handedness}
-          onChange={(e) =>
+          onValueChange={(v) =>
             setProfile((p) => ({
               ...p,
-              handedness: e.target.value as 'left' | 'right',
+              handedness: v as 'left' | 'right',
             }))
           }
-          style={inputStyle}
+          disabled={isLocked}
         >
-          <option value="right">Right</option>
-          <option value="left">Left</option>
-        </select>
-      </label>
+          <SelectTrigger id="handedness" className="h-11 w-full md:h-10">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="right">Right</SelectItem>
+            <SelectItem value="left">Left</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-      <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.9rem' }}>
-        Gender (optional, for tee recommendations)
-        <select
-          value={profile.gender ?? ''}
-          onChange={(e) =>
+      <div className="space-y-2">
+        <Label htmlFor="gender">Gender (optional, for tee recommendations)</Label>
+        <Select
+          value={profile.gender ?? 'unspecified'}
+          onValueChange={(v) =>
             setProfile((p) => ({
               ...p,
-              gender: (e.target.value || undefined) as UserProfile['gender'],
+              gender:
+                v === 'unspecified' ? undefined : (v as UserProfile['gender']),
             }))
           }
-          style={inputStyle}
+          disabled={isLocked}
         >
-          <option value="">Prefer not to say</option>
-          <option value="male">Male</option>
-          <option value="female">Female</option>
-        </select>
-      </label>
+          <SelectTrigger id="gender" className="h-11 w-full md:h-10">
+            <SelectValue placeholder="Prefer not to say" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="unspecified">Prefer not to say</SelectItem>
+            <SelectItem value="male">Male</SelectItem>
+            <SelectItem value="female">Female</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-      <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.9rem' }}>
-        Club set (optional)
-        <input
+      <div className="space-y-2">
+        <Label htmlFor="clubs">Club set (optional)</Label>
+        <Input
+          id="clubs"
           type="text"
           placeholder="e.g. standard 14, half set"
           value={profile.clubs ?? ''}
+          disabled={isLocked}
           onChange={(e) =>
             setProfile((p) => ({ ...p, clubs: e.target.value || undefined }))
           }
-          style={inputStyle}
+          className="h-11 md:h-10"
         />
-      </label>
+      </div>
 
-      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
-        <input
-          type="checkbox"
+      <div className="flex items-center gap-2">
+        <Checkbox
+          id="save"
           checked={saveToStorage}
-          onChange={(e) => setSaveToStorage(e.target.checked)}
+          onCheckedChange={(c) => setSaveToStorage(c === true)}
+          disabled={isLocked}
         />
-        Save for next time
-      </label>
+        <Label htmlFor="save" className="font-normal text-muted-foreground">
+          Save for next time
+        </Label>
+      </div>
 
-      <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
-        <button
+      <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+        <Button
           type="submit"
-          disabled={loading || disabled}
-          style={primaryButtonStyle(Boolean(loading || disabled))}
+          size="lg"
+          className={cn('min-h-12 flex-1 md:min-h-10')}
+          disabled={isLocked}
         >
           {loading ? 'Next…' : 'Next'}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="secondary"
+          size="lg"
+          className="min-h-12 md:min-h-10"
           onClick={onSkip}
-          disabled={loading || disabled}
-          style={secondaryButtonStyle}
+          disabled={isLocked}
         >
           Skip
-        </button>
+        </Button>
       </div>
     </form>
   );
 }
-
-const inputStyle: React.CSSProperties = {
-  padding: '0.5rem',
-  borderRadius: '0.375rem',
-  border: '1px solid var(--color-surface)',
-  background: 'var(--color-bg)',
-  color: 'var(--color-text)',
-  fontSize: '0.9rem',
-};
-
-function primaryButtonStyle(disabled: boolean): React.CSSProperties {
-  return {
-    flex: 1,
-    padding: '1rem 1.5rem',
-    fontSize: '1.1rem',
-    fontWeight: 600,
-    borderRadius: '0.5rem',
-    background: 'var(--color-accent)',
-    color: 'var(--color-bg)',
-    border: 'none',
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    opacity: disabled ? 0.7 : 1,
-  };
-}
-
-const secondaryButtonStyle: React.CSSProperties = {
-  padding: '1rem',
-  fontSize: '1rem',
-  borderRadius: '0.5rem',
-  background: 'var(--color-surface)',
-  color: 'var(--color-muted)',
-  border: '1px solid transparent',
-  cursor: 'pointer',
-};

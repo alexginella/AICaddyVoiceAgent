@@ -1,4 +1,10 @@
 import { useState, useCallback } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CardDescription } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 export type SelectedCourse = { name: string };
 
@@ -8,42 +14,6 @@ interface CourseSelectProps {
   loading: boolean;
   disabled?: boolean;
 }
-
-const inputStyle: React.CSSProperties = {
-  padding: '0.75rem',
-  borderRadius: '0.5rem',
-  border: '1px solid var(--color-surface)',
-  background: 'var(--color-bg)',
-  color: 'var(--color-text)',
-  fontSize: '1rem',
-  minHeight: '48px',
-  width: '100%',
-};
-
-const primaryButtonStyle = (disabled: boolean): React.CSSProperties => ({
-  flex: 1,
-  padding: '1rem 1.5rem',
-  fontSize: '1.1rem',
-  fontWeight: 600,
-  borderRadius: '0.5rem',
-  background: 'var(--color-accent)',
-  color: 'var(--color-bg)',
-  border: 'none',
-  cursor: disabled ? 'not-allowed' : 'pointer',
-  opacity: disabled ? 0.7 : 1,
-  minHeight: '48px',
-});
-
-const secondaryButtonStyle: React.CSSProperties = {
-  padding: '1rem',
-  fontSize: '1rem',
-  borderRadius: '0.5rem',
-  background: 'var(--color-surface)',
-  color: 'var(--color-muted)',
-  border: '1px solid transparent',
-  cursor: 'pointer',
-  minHeight: '48px',
-};
 
 export function CourseSelect({
   onSelect,
@@ -122,122 +92,114 @@ export function CourseSelect({
   };
 
   const isDisabled = disabled || loading;
+  const searchDisabled = isDisabled || fetching || !locationInput.trim();
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '1rem',
-        maxWidth: '360px',
-        width: '100%',
-      }}
-    >
-      <p style={{ fontSize: '0.95rem', color: 'var(--color-muted)', margin: 0 }}>
+    <div className="flex w-full max-w-md flex-col gap-4">
+      <CardDescription className="text-base leading-relaxed">
         Where are you playing? We&apos;ll prepare a yardage book for Chip before your call.
-      </p>
+      </CardDescription>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        <input
+      <div className="flex flex-col gap-2">
+        <Input
           type="text"
           placeholder="City or zip code"
           value={locationInput}
-          onChange={(e) => setLocationInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && fetchByLocation()}
-          style={inputStyle}
           disabled={isDisabled}
+          onChange={(e) => setLocationInput(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && void fetchByLocation()}
+          className="h-12 md:h-10"
         />
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button
             type="button"
-            onClick={fetchByLocation}
-            disabled={isDisabled || fetching || !locationInput.trim()}
-            style={primaryButtonStyle(isDisabled || fetching || !locationInput.trim())}
+            size="lg"
+            className="min-h-12 flex-1 sm:min-h-10"
+            disabled={searchDisabled}
+            onClick={() => void fetchByLocation()}
           >
             {fetching ? 'Searching…' : 'Search'}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            onClick={handleUseMyLocation}
+            variant="secondary"
+            size="lg"
+            className="min-h-12 flex-1 sm:min-h-10"
             disabled={isDisabled || fetching}
-            style={secondaryButtonStyle}
+            onClick={handleUseMyLocation}
           >
             Use my location
-          </button>
+          </Button>
         </div>
       </div>
 
       {fetchError && (
-        <p style={{ color: '#f87171', fontSize: '0.875rem', margin: 0 }}>{fetchError}</p>
+        <Alert variant="destructive">
+          <AlertDescription>{fetchError}</AlertDescription>
+        </Alert>
       )}
 
       {courses.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <span style={{ fontSize: '0.9rem', color: 'var(--color-muted)' }}>
-            Select a course:
-          </span>
-          {courses.map((c) => (
-            <button
-              key={c.name}
-              type="button"
-              onClick={() => handleSelectCourse(c)}
-              disabled={isDisabled}
-              style={{
-                padding: '1rem',
-                textAlign: 'left',
-                borderRadius: '0.5rem',
-                border: '1px solid var(--color-surface)',
-                background: 'var(--color-bg)',
-                color: 'var(--color-text)',
-                cursor: isDisabled ? 'not-allowed' : 'pointer',
-                minHeight: '48px',
-                fontSize: '1rem',
-              }}
-            >
-              {c.name}
-              {c.distance && (
-                <span style={{ color: 'var(--color-muted)', fontSize: '0.85rem', marginLeft: '0.5rem' }}>
-                  ({c.distance})
-                </span>
-              )}
-            </button>
-          ))}
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-muted-foreground">Select a course:</p>
+          <div className="flex max-h-60 flex-col gap-2 overflow-y-auto pr-1">
+            {courses.map((c) => (
+              <Button
+                key={c.name}
+                type="button"
+                variant="outline"
+                disabled={isDisabled}
+                onClick={() => handleSelectCourse(c)}
+                className={cn(
+                  'h-auto min-h-12 w-full justify-start whitespace-normal py-3 text-left font-normal'
+                )}
+              >
+                <span className="break-words">{c.name}</span>
+                {c.distance && (
+                  <span className="ml-2 shrink-0 text-muted-foreground">({c.distance})</span>
+                )}
+              </Button>
+            ))}
+          </div>
         </div>
       )}
 
-      <form onSubmit={handleCustomSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        <span style={{ fontSize: '0.9rem', color: 'var(--color-muted)' }}>
+      <form onSubmit={handleCustomSubmit} className="space-y-2">
+        <p className="text-sm font-medium text-muted-foreground">
           Or type a different course name:
-        </span>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <input
+        </p>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Input
             type="text"
             placeholder="e.g. Pebble Beach"
             value={customName}
-            onChange={(e) => setCustomName(e.target.value)}
-            style={inputStyle}
             disabled={isDisabled}
+            onChange={(e) => setCustomName(e.target.value)}
+            className="h-12 min-w-0 flex-1 md:h-10"
           />
-          <button
+          <Button
             type="submit"
+            size="lg"
+            className="min-h-12 shrink-0 sm:min-h-10"
             disabled={isDisabled || !customName.trim()}
-            style={primaryButtonStyle(isDisabled || !customName.trim())}
           >
             Use
-          </button>
+          </Button>
         </div>
       </form>
 
-      <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
-        <button
-          type="button"
-          onClick={onBack}
-          disabled={isDisabled}
-          style={secondaryButtonStyle}
-        >
-          Back
-        </button>
-      </div>
+      <Separator />
+
+      <Button
+        type="button"
+        variant="secondary"
+        size="lg"
+        className="min-h-12 w-full md:min-h-10"
+        onClick={onBack}
+        disabled={isDisabled}
+      >
+        Back
+      </Button>
     </div>
   );
 }

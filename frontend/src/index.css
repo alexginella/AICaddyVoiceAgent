@@ -15,7 +15,7 @@
   --safe-top: env(safe-area-inset-top);
   --safe-bottom: env(safe-area-inset-bottom);
 
-  /* shadcn theme: golf palette */
+  /* shadcn tokens → golf palette (dark course UI) */
   --background: var(--color-bg);
   --foreground: var(--color-text);
   --card: var(--color-surface);
@@ -57,9 +57,6 @@
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  background: var(--color-bg);
-  color: var(--color-text);
   min-height: 100dvh;
   padding: var(--safe-top) 0 var(--safe-bottom);
   -webkit-font-smoothing: antialiased;
@@ -70,7 +67,7 @@ body {
 }
 
 .dark {
-  /* same golf theme - app is dark by default */
+  /* alias: same tokens as :root for optional `.dark` wrapper */
   --background: var(--color-bg);
   --foreground: var(--color-text);
   --card: var(--color-surface);
@@ -97,6 +94,11 @@ body {
   --sidebar-accent-foreground: var(--color-muted);
   --sidebar-border: rgba(134, 239, 172, 0.2);
   --sidebar-ring: var(--color-accent);
+  --chart-1: #4ade80;
+  --chart-2: #86efac;
+  --chart-3: #22c55e;
+  --chart-4: #16a34a;
+  --chart-5: #15803d;
 }
 
 @theme inline {
@@ -139,6 +141,7 @@ body {
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  --font-heading: var(--font-sans);
 }
 
 @layer base {

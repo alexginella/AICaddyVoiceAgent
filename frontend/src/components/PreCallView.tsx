@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { UserProfile } from './IntakeForm';
 import type { SelectedCourse } from './CourseSelect';
 import { IntakeForm } from './IntakeForm';
@@ -92,108 +95,78 @@ export function PreCallView({ onStartCall, liveKitUrl }: PreCallViewProps) {
   const configMissing = !liveKitUrl;
 
   return (
-    <div
-      style={{
-        minHeight: '100dvh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '1.5rem',
-        gap: '1.5rem',
-      }}
-    >
-      <header style={{ textAlign: 'center', maxWidth: '320px' }}>
-        <h1 style={{ fontSize: '1.75rem', margin: 0, color: 'var(--color-accent)' }}>
-          Chip the AI Caddy
-        </h1>
-        <p style={{ color: 'var(--color-muted)', fontSize: '0.95rem', marginTop: '0.5rem' }}>
-          Your virtual caddy for course knowledge, club selection, and strategy.
-        </p>
-      </header>
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-6 p-6">
+      <Card className="w-full max-w-md border-border/80 bg-card/90 shadow-lg ring-1 ring-primary/10">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl text-primary">Chip the AI Caddy</CardTitle>
+          <CardDescription className="text-base">
+            Your virtual caddy for course knowledge, club selection, and strategy.
+          </CardDescription>
+        </CardHeader>
 
-      {configMissing && (
-        <p style={{ color: '#f87171', fontSize: '0.875rem', textAlign: 'center' }}>
-          Set VITE_LIVEKIT_URL in .env. Run `node api-server.js` for local token API.
-        </p>
-      )}
+        <CardContent className="flex flex-col items-center gap-4">
+          {configMissing && (
+            <Alert variant="destructive" className="w-full">
+              <AlertDescription>
+                Set VITE_LIVEKIT_URL in .env. Run `node api-server.js` for local token API.
+              </AlertDescription>
+            </Alert>
+          )}
 
-      {error && (
-        <p style={{ color: '#f87171', fontSize: '0.875rem', textAlign: 'center' }}>
-          {error}
-        </p>
-      )}
+          {error && (
+            <Alert variant="destructive" className="w-full">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
-      {step === 'intake' && (
-        <IntakeForm
-          onSubmit={handleIntakeNext}
-          onSkip={handleIntakeSkip}
-          loading={false}
-          disabled={configMissing}
-        />
-      )}
+          {step === 'intake' && (
+            <IntakeForm
+              onSubmit={handleIntakeNext}
+              onSkip={handleIntakeSkip}
+              loading={false}
+              disabled={configMissing}
+            />
+          )}
 
-      {step === 'course' && (
-        <CourseSelect
-          onSelect={handleCourseSelect}
-          onBack={handleCourseBack}
-          loading={loading}
-          disabled={configMissing}
-        />
-      )}
+          {step === 'course' && (
+            <CourseSelect
+              onSelect={handleCourseSelect}
+              onBack={handleCourseBack}
+              loading={loading}
+              disabled={configMissing}
+            />
+          )}
 
-      {step === 'ready' && selectedCourse && (
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '1rem',
-            maxWidth: '360px',
-            width: '100%',
-            alignItems: 'stretch',
-          }}
-        >
-          <p style={{ fontSize: '0.95rem', color: 'var(--color-muted)', margin: 0, textAlign: 'center' }}>
-            Yardage book ready for <strong>{selectedCourse.name}</strong>. Start your call when you&apos;re ready—Chip will use it on the round.
-          </p>
-          <button
-            type="button"
-            onClick={handleStartCall}
-            disabled={loading || configMissing}
-            style={{
-              padding: '1rem 1.5rem',
-              fontSize: '1.1rem',
-              fontWeight: 600,
-              borderRadius: '0.5rem',
-              background: 'var(--color-accent)',
-              color: 'var(--color-bg)',
-              border: 'none',
-              cursor: loading || configMissing ? 'not-allowed' : 'pointer',
-              opacity: loading || configMissing ? 0.7 : 1,
-              minHeight: '48px',
-            }}
-          >
-            {loading ? 'Connecting…' : 'Start call'}
-          </button>
-          <button
-            type="button"
-            onClick={handleReadyBack}
-            disabled={loading}
-            style={{
-              padding: '1rem',
-              fontSize: '1rem',
-              borderRadius: '0.5rem',
-              background: 'var(--color-surface)',
-              color: 'var(--color-muted)',
-              border: '1px solid transparent',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              minHeight: '48px',
-            }}
-          >
-            Change course
-          </button>
-        </div>
-      )}
+          {step === 'ready' && selectedCourse && (
+            <div className="flex w-full flex-col gap-3">
+              <p className="text-center text-sm leading-relaxed text-muted-foreground">
+                Yardage book ready for{' '}
+                <span className="font-semibold text-foreground">{selectedCourse.name}</span>. Start your
+                call when you&apos;re ready—Chip will use it on the round.
+              </p>
+              <Button
+                type="button"
+                size="lg"
+                className="min-h-12 w-full text-base font-semibold"
+                onClick={() => void handleStartCall()}
+                disabled={loading || configMissing}
+              >
+                {loading ? 'Connecting…' : 'Start call'}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="lg"
+                className="min-h-12 w-full"
+                onClick={handleReadyBack}
+                disabled={loading}
+              >
+                Change course
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
