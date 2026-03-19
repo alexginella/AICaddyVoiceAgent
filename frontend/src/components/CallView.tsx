@@ -1,4 +1,4 @@
-import { DisconnectButton, useDataChannel } from '@livekit/components-react';
+import { DisconnectButton, RoomAudioRenderer, useDataChannel } from '@livekit/components-react';
 import { LiveTranscript } from './LiveTranscript';
 
 export type ClubYardages = Record<string, number>;
@@ -37,6 +37,8 @@ export function CallView({ clubYardages, onProfileUpdate }: CallViewProps) {
         paddingBottom: 'calc(1rem + var(--safe-bottom))',
       }}
     >
+      {/* Plays remote agent TTS (and any other remote audio) in the browser */}
+      <RoomAudioRenderer />
       <header
         style={{
           display: 'flex',
