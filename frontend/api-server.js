@@ -1,10 +1,16 @@
 /**
  * Local dev server for the token API.
- * Run: node api-server.js
- * Requires: LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET
+ * Run from frontend/: node api-server.js
+ * Loads .env from project root.
  */
 import { createServer } from 'http';
+import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
+import { config } from 'dotenv';
 import { AccessToken } from 'livekit-server-sdk';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+config({ path: resolve(__dirname, '..', '.env') });
 
 const PORT = 3001;
 

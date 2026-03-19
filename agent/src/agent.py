@@ -4,6 +4,8 @@ LiveKit agent with STT, LLM, TTS pipeline, RAG, and tools.
 """
 import logging
 
+from pathlib import Path
+
 from dotenv import load_dotenv
 from livekit import rtc
 from livekit.agents import (
@@ -23,7 +25,9 @@ from rag import get_rag_lookup, init_rag
 
 logger = logging.getLogger("agent")
 
-load_dotenv(".env.local")
+# Load single .env from project root
+_env_path = Path(__file__).resolve().parent.parent.parent / ".env"
+load_dotenv(_env_path)
 
 
 def prewarm(proc: JobProcess):

@@ -46,26 +46,24 @@ A RAG-enabled voice agent ("Chip") that acts as a virtual golf caddy—answering
 git clone <repo-url>
 cd AICaddyVoiceAgent
 cp .env.example .env
-# Edit .env with LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET, OPENAI_API_KEY
+# Edit .env with LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET, OPENAI_API_KEY, VITE_LIVEKIT_URL
 ```
+
+All services (agent, token API, frontend) use this single `.env` at the project root.
 
 ### 2. Agent (Python)
 
 ```bash
 cd agent
-cp .env.example .env.local
-# Add LiveKit + OpenAI keys to .env.local
-
 # Install (with uv)
 uv sync
 
 # Or with pip
-pip install -e .
+pip install .
 
-# Place yardage book PDF
-# agent/data/yardage_book.pdf (TPC Sawgrass or similar)
+# Place yardage book PDF at agent/data/yardage_book.pdf (TPC Sawgrass or similar)
 
-# Run locally
+# Run locally (loads .env from project root)
 uv run src/agent.py dev
 # Or: python -m src.agent dev
 ```
@@ -74,12 +72,11 @@ uv run src/agent.py dev
 
 ```bash
 cd frontend
-cp .env.example .env.local
-# Add VITE_LIVEKIT_URL=wss://your-project.livekit.cloud
-
 npm install
 npm run dev
 ```
+
+Vite loads `.env` from the project root. Ensure `VITE_LIVEKIT_URL` is set there.
 
 ### 4. Token API (local dev)
 
@@ -87,20 +84,17 @@ In another terminal:
 
 ```bash
 cd frontend
-export LIVEKIT_URL=wss://...
-export LIVEKIT_API_KEY=...
-export LIVEKIT_API_SECRET=...
 node api-server.js
 ```
 
-Ensure Vite proxy targets `localhost:3001` (see `vite.config.ts`).
+Loads `.env` from the project root. Ensure Vite proxy targets `localhost:3001` (see `vite.config.ts`).
 
 ---
 
 ## Deploy to Vercel
 
 1. Connect the repo to Vercel; set root to `frontend`.
-2. Add env vars: `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `VITE_LIVEKIT_URL`.
+2. Add env vars: `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `VITE_LIVEKIT_URL` (Vercel provides its own URL).
 3. Deploy. The `/api/token` serverless function runs automatically.
 
 ---
