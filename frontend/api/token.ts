@@ -1,5 +1,6 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelRequest, VercelResponse } from './vercel-types';
 import { AccessToken } from 'livekit-server-sdk';
+import { RoomConfiguration, RoomAgentDispatch } from '@livekit/protocol';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -23,22 +24,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const body = req.body ?? {};
-    const { roomName, identity, name, clubYardages } = body as {
+    const { roomName, identity, name, userProfile, selectedCourse } = body as {
       roomName?: string;
       identity?: string;
       name?: string;
-      clubYardages?: Record<string, number>;
+      userProfile?: Record<string, unknown>;
+      selectedCourse?: { name?: string };
     };
 
     const rn = roomName ?? `caddy-${Date.now()}`;
     const id = identity ?? `user-${Date.now()}`;
     const displayName = name ?? 'Golfer';
 
+    const metadata = JSON.stringify({
+      userProfile: userProfile ?? {},
+      selectedCourse: selectedCourse ?? { name: '' },
+    });
+
     const at = new AccessToken(apiKey, apiSecret, {
       identity: id,
       name: displayName,
       ttl: '1h',
-      metadata: JSON.stringify({ clubYardages: clubYardages ?? {} }),
+      metadata,
     });
 
     at.addGrant({
@@ -46,6 +53,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       room: rn,
       canPublish: true,
       canSubscribe: true,
+    });
+
+    at.roomConfig = new RoomConfiguration({
+      agents: [
+        new RoomAgentDispatch({
+          agentName: 'my-agent',
+          metadata,
+        }),
+      ],
     });
 
     const token = await at.toJwt();

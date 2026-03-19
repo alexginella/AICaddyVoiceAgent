@@ -2,8 +2,8 @@
 AI Caddy Voice Agent - Main entrypoint
 LiveKit agent with STT, LLM, TTS pipeline, RAG, and tools.
 """
+import json
 import logging
-
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -21,7 +21,7 @@ from livekit.plugins import noise_cancellation, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 from caddy_agent import CaddyAgent
-from rag import get_rag_lookup, init_rag
+from rag import get_or_create_rag_for_course, get_rag_lookup, init_rag
 
 logger = logging.getLogger("agent")
 
@@ -30,8 +30,17 @@ _env_path = Path(__file__).resolve().parent.parent.parent / ".env"
 load_dotenv(_env_path)
 
 
+def _parse_metadata(data) -> dict:
+    if not data:
+        return {}
+    try:
+        return json.loads(data) if isinstance(data, str) else (data or {})
+    except (json.JSONDecodeError, TypeError):
+        return {}
+
+
 def prewarm(proc: JobProcess):
-    """Load VAD and RAG index at startup."""
+    """Load VAD and default RAG index at startup."""
     proc.userdata["vad"] = silero.VAD.load()
     proc.userdata["rag_lookup"] = init_rag()
 
@@ -45,27 +54,23 @@ async def my_agent(ctx: JobContext):
     """Handle incoming voice sessions."""
     ctx.log_context_fields = {"room": ctx.room.name}
 
-    # Parse club yardages from job metadata or first participant metadata (passed from frontend)
-    club_yardages = {}
-    import json
-
-    def _extract_yardages(data):
-        if not data:
-            return {}
-        try:
-            meta = json.loads(data) if isinstance(data, str) else data
-            return meta.get("clubYardages", meta.get("club_yardages", {}))
-        except (json.JSONDecodeError, TypeError):
-            return {}
-
-    if ctx.job.metadata:
-        club_yardages = _extract_yardages(ctx.job.metadata)
-    if not club_yardages:
+    meta = _parse_metadata(ctx.job.metadata)
+    if not meta:
         for p in ctx.room.remote_participants.values():
             if p.metadata:
-                club_yardages = _extract_yardages(p.metadata)
-                if club_yardages:
+                meta = _parse_metadata(p.metadata)
+                if meta:
                     break
+
+    user_profile = meta.get("userProfile") or {}
+    selected_course = meta.get("selectedCourse") or {}
+    course_name = (selected_course.get("name") or "").strip()
+    club_yardages = user_profile.get("clubYardages") or meta.get("clubYardages") or {}
+
+    # Use per-course RAG when a course is selected
+    rag_lookup = ctx.proc.userdata.get("rag_lookup") or get_rag_lookup()
+    if course_name:
+        rag_lookup = await get_or_create_rag_for_course(course_name)
 
     session = AgentSession(
         stt=inference.STT(model="deepgram/nova-3", language="multi"),
@@ -78,11 +83,11 @@ async def my_agent(ctx: JobContext):
         preemptive_generation=True,
     )
 
-    rag_lookup = ctx.proc.userdata.get("rag_lookup") or get_rag_lookup()
-
     agent = CaddyAgent(
         club_yardages=club_yardages,
         rag_lookup=rag_lookup,
+        user_profile=user_profile,
+        room=ctx.room,
     )
 
     await session.start(
@@ -101,9 +106,10 @@ async def my_agent(ctx: JobContext):
 
     await ctx.connect()
 
-    await session.generate_reply(
-        instructions="Greet the user warmly as Chip the caddy. Introduce yourself briefly and offer to help with their round—course knowledge, club selection, or strategy."
-    )
+    greet = "Greet the user warmly as Chip the caddy. Introduce yourself briefly and offer to help with their round—course knowledge, club selection, or strategy."
+    if course_name:
+        greet += f" They're playing at {course_name} today."
+    await session.generate_reply(instructions=greet)
 
 
 if __name__ == "__main__":

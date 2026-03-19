@@ -1,12 +1,32 @@
-import { DisconnectButton } from '@livekit/components-react';
-import type { ClubYardages } from '../App';
+import { DisconnectButton, useDataChannel } from '@livekit/components-react';
 import { LiveTranscript } from './LiveTranscript';
+
+export type ClubYardages = Record<string, number>;
+
+interface UserProfileUpdate {
+  type: 'profile_update';
+  userProfile?: { clubYardages?: ClubYardages };
+}
 
 interface CallViewProps {
   clubYardages: ClubYardages;
+  onProfileUpdate?: (profile: { clubYardages?: ClubYardages }) => void;
 }
 
-export function CallView({ clubYardages }: CallViewProps) {
+export function CallView({ clubYardages, onProfileUpdate }: CallViewProps) {
+  useDataChannel('caddy', (msg) => {
+    if (!onProfileUpdate) return;
+    try {
+      const raw = msg.payload;
+      const str = typeof raw === 'string' ? raw : new TextDecoder().decode(raw);
+      const payload = JSON.parse(str) as UserProfileUpdate;
+      if (payload?.type === 'profile_update' && payload.userProfile) {
+        onProfileUpdate(payload.userProfile);
+      }
+    } catch {
+      // ignore
+    }
+  });
   return (
     <div
       style={{

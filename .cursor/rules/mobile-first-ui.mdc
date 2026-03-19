@@ -1,0 +1,14 @@
+---
+description: Mobile-first UI for React frontend
+globs: frontend/**/*.{tsx,ts,css}
+alwaysApply: false
+---
+
+# Mobile-First React UI
+
+This app is designed **mobile-first**. All UI changes must reflect that:
+
+- **Start with mobile**: Base layouts and styles for small screens (320px–480px), then use `min-width` media queries for larger breakpoints.
+- **Touch-friendly targets**: Buttons and tappable elements should be at least 44x44px for touch usability.
+- **Responsive units**: Prefer `rem`, `%`, or `vw/vh` over fixed pixel widths for layout where possible.
+- **Viewport**: Ensure proper viewport meta and avoid horizontal overflow on narrow screens.

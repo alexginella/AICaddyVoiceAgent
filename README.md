@@ -6,27 +6,35 @@ A RAG-enabled voice agent ("Chip") that acts as a virtual golf caddy—answering
 
 ### How It Works End-to-End
 
-1. **User** opens the React frontend (mobile-friendly), optionally enters club yardages, and clicks **Start Call**.
-2. **Token API** (Vercel serverless) creates a LiveKit access token with participant metadata (club yardages) and returns it.
+1. **User** completes the intake form (handicap, age, handedness, gender), then selects a course (by location search, geolocation, or manual name).
+2. **Token API** (Vercel serverless) creates a LiveKit access token with participant metadata (`userProfile`, `selectedCourse`) and returns it.
 3. **Frontend** connects to the LiveKit room via WebRTC. The agent is dispatched by LiveKit Cloud when the user joins.
-4. **Agent** (Python, STT→LLM→TTS) joins the room, reads club yardages from participant metadata, and greets the user as Chip.
-5. **RAG** runs on each user turn via `on_user_turn_completed`: the agent queries the course yardage book PDF (indexed with LlamaIndex + Chroma) and injects retrieved context before the LLM responds.
-6. **Tools**: `get_nearby_golf_courses(location)` for course lookups; `update_my_yardages(club, distance)` for voice-based yardage capture.
-7. **Live transcript** streams to the frontend in real time.
+4. **Agent** reads user profile and selected course from metadata, generates a course-specific RAG guide if needed, and greets the user as Chip.
+5. **RAG** runs on each user turn via `on_user_turn_completed`: the agent queries course-specific or default yardage book PDF (indexed with LlamaIndex + Chroma) and injects retrieved context.
+6. **Tools**: `get_nearby_golf_courses(location)` uses Overpass/Nominatim for real course lookups; `update_my_yardages(club, distance)` captures yardages and pushes them to the frontend via data channel.
+7. **Yardage persistence**: When the user tells Chip their club distances, the agent publishes an updated profile; the frontend saves it to `localStorage` for the next session.
+8. **Live transcript** streams to the frontend in real time.
+
+### User Flow
+
+```
+Intake Form → Location / Course Select → Start Call → Caddy Session → (Yardages stored for next time)
+```
 
 ### RAG Integration
 
-- **Source**: TPC Sawgrass Dye's Valley yardage book PDF (or any course yardage book).
-- **Indexing**: LlamaIndex chunks the PDF (~512 tokens, 50 overlap), embeds with OpenAI `text-embedding-3-small`, stores in Chroma.
-- **Retrieval**: On every user turn, the agent calls `rag_lookup(query)` and injects results into the chat context before the LLM generates a response.
-- **Chunking**: Hole-level metadata when possible; similarity search with `similarity_top_k=3`.
+- **Default**: Static `agent/data/yardage_book.pdf` (TPC Sawgrass or similar), indexed at startup.
+- **Dynamic per-course**: When the user selects a course, the agent generates a hole-by-hole guide (GolfCourseAPI + LLM, or LLM-only fallback), saves as PDF to `agent/data/courses/{slug}.pdf`, and indexes in a per-course Chroma collection.
+- **Indexing**: LlamaIndex chunks (~512 tokens, 50 overlap), embeds with OpenAI `text-embedding-3-small`. Hole-level metadata when structure permits.
+- **Retrieval**: Similarity search with `similarity_top_k=3`.
 
 ### Tools and Frameworks
 
 - **LiveKit Agents** (Python): STT (Deepgram Nova-3), LLM (OpenAI GPT-4.1 mini), TTS (Cartesia Sonic), VAD (Silero), turn detection (MultilingualModel).
 - **LlamaIndex**: RAG pipeline, PDF loading, Chroma vector store.
 - **React + Vite**: Frontend with `@livekit/components-react`, mobile-first layout.
-- **Vercel**: Frontend + token API deployment. LiveKit Cloud for media and agent hosting.
+- **Overpass / Nominatim**: Golf course search (free, no API key).
+- **Vercel**: Frontend + token API + nearby-courses API deployment. LiveKit Cloud for media and agent hosting.
 
 ---
 
@@ -51,6 +59,8 @@ cp .env.example .env
 
 All services (agent, token API, frontend) use this single `.env` at the project root.
 
+Optional: `GOLF_COURSE_API_KEY` for structured hole data when generating course guides (free signup at golfcourseapi.com).
+
 ### 2. Agent (Python)
 
 ```bash
@@ -61,7 +71,8 @@ uv sync
 # Or with pip
 pip install .
 
-# Place yardage book PDF at agent/data/yardage_book.pdf (TPC Sawgrass or similar)
+# Optional: Place yardage book PDF at agent/data/yardage_book.pdf (TPC Sawgrass or similar)
+# Per-course guides are generated under agent/data/courses/
 
 # Run locally (loads .env from project root)
 uv run src/agent.py dev
@@ -87,7 +98,7 @@ cd frontend
 node api-server.js
 ```
 
-Loads `.env` from the project root. Ensure Vite proxy targets `localhost:3001` (see `vite.config.ts`).
+Loads `.env` from the project root. Serves `/api/token` and `/api/nearby-courses` (proxied by Vite to `localhost:3001`).
 
 ---
 
@@ -95,7 +106,7 @@ Loads `.env` from the project root. Ensure Vite proxy targets `localhost:3001` (
 
 1. Connect the repo to Vercel; set root to `frontend`.
 2. Add env vars: `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `VITE_LIVEKIT_URL` (Vercel provides its own URL).
-3. Deploy. The `/api/token` serverless function runs automatically.
+3. Deploy. The `/api/token` and `/api/nearby-courses` serverless functions run automatically.
 
 ---
 
@@ -115,11 +126,14 @@ Or use AWS ECS with the included Dockerfile.
 
 | Topic | Decision |
 |-------|----------|
-| **RAG chunking** | 512 tokens, 50 overlap; works for hole layouts and distance tables |
-| **Vector DB** | Chroma (local in agent container); can switch to Pinecone for scale |
-| **Club yardages** | Form + voice (tool). File upload/parsing deferred. Passed via participant metadata |
-| **Tool call** | `get_nearby_golf_courses` uses mock data; can plug Overpass API |
-| **Hosting** | Frontend + token API on Vercel; agent on LiveKit Cloud or AWS ECS |
+| **Intake** | Handicap, age, handedness, gender. No yardages pre-call; learned via voice. |
+| **Course selection** | Geolocation or city/zip → Overpass (leisure=golf_course). Manual course name fallback. |
+| **RAG chunking** | 512 tokens, 50 overlap; hole-level metadata when possible |
+| **Vector DB** | Chroma (local in agent container); per-course collections for dynamic guides |
+| **Course guide generation** | GolfCourseAPI (if key set) + LLM expansion, or LLM-only. Output PDF per course. |
+| **Club yardages** | Voice (tool). Stored in `userProfile`. Pushed to frontend via LiveKit data channel; frontend saves to `localStorage`. |
+| **Tool call** | `get_nearby_golf_courses` uses Overpass + Nominatim |
+| **Hosting** | Frontend + token API + nearby-courses on Vercel; agent on LiveKit Cloud or AWS ECS |
 | **Mobile** | Mobile-first layout; touch targets, safe areas, readable transcript |
 
 ---
@@ -132,17 +146,24 @@ AICaddyVoiceAgent/
 │   ├── src/
 │   │   ├── agent.py
 │   │   ├── caddy_agent.py
+│   │   ├── course_guide.py   # Course PDF generation (GolfCourseAPI + LLM)
 │   │   ├── rag.py
 │   │   └── tools.py
 │   ├── data/
-│   │   └── yardage_book.pdf
+│   │   ├── yardage_book.pdf
+│   │   └── courses/         # Generated per-course PDFs
 │   └── vector_store/
 ├── frontend/            # React + Vite
 │   ├── api/
-│   │   └── token.ts     # Vercel serverless
+│   │   ├── token.ts         # Vercel serverless
+│   │   └── nearby-courses.ts # Overpass/Nominatim proxy
 │   ├── src/
 │   │   ├── App.tsx
 │   │   └── components/
-│   └── api-server.js    # Local dev token API
+│   │       ├── IntakeForm.tsx
+│   │       ├── CourseSelect.tsx
+│   │       ├── PreCallView.tsx
+│   │       └── CallView.tsx
+│   └── api-server.js    # Local dev (token + nearby-courses)
 └── README.md
 ```

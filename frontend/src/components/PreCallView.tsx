@@ -1,27 +1,48 @@
 import { useState } from 'react';
-import type { ClubYardages } from '../App';
-import { ClubYardagesForm } from './ClubYardagesForm';
+import type { UserProfile } from './IntakeForm';
+import type { SelectedCourse } from './CourseSelect';
+import { IntakeForm } from './IntakeForm';
+import { CourseSelect } from './CourseSelect';
+
+type Step = 'intake' | 'course' | 'start';
 
 interface PreCallViewProps {
-  onStartCall: (yardages: ClubYardages) => Promise<void>;
+  onStartCall: (userProfile: UserProfile, selectedCourse: SelectedCourse) => Promise<void>;
   liveKitUrl: string;
 }
 
 export function PreCallView({ onStartCall, liveKitUrl }: PreCallViewProps) {
+  const [step, setStep] = useState<Step>('intake');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showYardages, setShowYardages] = useState(true);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
-  const handleSubmit = async (yardages: ClubYardages) => {
+  const handleIntakeNext = (profile: UserProfile) => {
+    setUserProfile(profile);
+    setStep('course');
+  };
+
+  const handleIntakeSkip = () => {
+    setUserProfile({
+      handedness: 'right',
+    });
+    setStep('course');
+  };
+
+  const handleCourseSelect = async (selectedCourse: SelectedCourse) => {
     setError(null);
     setLoading(true);
     try {
-      await onStartCall(yardages);
+      await onStartCall(userProfile ?? { handedness: 'right' }, selectedCourse);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to start call');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCourseBack = () => {
+    setStep('intake');
   };
 
   const configMissing = !liveKitUrl;
@@ -59,48 +80,23 @@ export function PreCallView({ onStartCall, liveKitUrl }: PreCallViewProps) {
         </p>
       )}
 
-      {showYardages ? (
-        <ClubYardagesForm
-          onSubmit={handleSubmit}
-          onSkip={() => handleSubmit({})}
+      {step === 'intake' && (
+        <IntakeForm
+          onSubmit={handleIntakeNext}
+          onSkip={handleIntakeSkip}
+          loading={false}
+          disabled={configMissing}
+        />
+      )}
+
+      {step === 'course' && (
+        <CourseSelect
+          onSelect={handleCourseSelect}
+          onBack={handleCourseBack}
           loading={loading}
           disabled={configMissing}
         />
-      ) : (
-        <button
-          type="button"
-          onClick={() => handleSubmit({})}
-          disabled={loading || configMissing}
-          style={{
-            padding: '1rem 1.5rem',
-            fontSize: '1.1rem',
-            fontWeight: 600,
-            borderRadius: '0.5rem',
-            background: 'var(--color-accent)',
-            color: 'var(--color-bg)',
-            border: 'none',
-            cursor: loading || configMissing ? 'not-allowed' : 'pointer',
-            opacity: loading || configMissing ? 0.7 : 1,
-          }}
-        >
-          {loading ? 'Starting…' : 'Start Call'}
-        </button>
       )}
-
-      <button
-        type="button"
-        onClick={() => setShowYardages(!showYardages)}
-        style={{
-          background: 'none',
-          border: 'none',
-          color: 'var(--color-muted)',
-          fontSize: '0.8rem',
-          cursor: 'pointer',
-          textDecoration: 'underline',
-        }}
-      >
-        {showYardages ? 'Skip yardages' : 'Add yardages'}
-      </button>
     </div>
   );
 }

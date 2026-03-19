@@ -6,6 +6,7 @@ export type UserProfile = {
   handedness: 'left' | 'right';
   gender?: 'male' | 'female' | 'other';
   clubs?: string;
+  clubYardages?: Record<string, number>;
 };
 
 const STORAGE_KEY = 'caddy-user-profile';
@@ -51,6 +52,7 @@ export function IntakeForm({
       age: stored.age,
       gender: stored.gender,
       clubs: stored.clubs ?? 'standard 14',
+      clubYardages: stored.clubYardages,
     };
   });
   const [saveToStorage, setSaveToStorage] = useState(true);

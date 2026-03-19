@@ -3,18 +3,36 @@ import { LiveKitRoom } from '@livekit/components-react';
 import '@livekit/components-styles';
 import { CallView } from './components/CallView';
 import { PreCallView } from './components/PreCallView';
+import type { UserProfile } from './components/IntakeForm';
+import type { SelectedCourse } from './components/CourseSelect';
 
-const VITE_LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL ?? '';
+const STORAGE_KEY = 'caddy-user-profile';
 
-export type ClubYardages = Record<string, number>;
+function loadStoredProfile(): Partial<UserProfile> {
+  try {
+    const s = localStorage.getItem(STORAGE_KEY);
+    if (s) return JSON.parse(s) as Partial<UserProfile>;
+  } catch {
+    // ignore
+  }
+  return {};
+}
+
+function saveStoredProfile(profile: Partial<UserProfile>) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+  } catch {
+    // ignore
+  }
+}
 
 function App() {
   const [token, setToken] = useState<string | null>(null);
   const [roomName, setRoomName] = useState<string | null>(null);
-  const [clubYardages, setClubYardages] = useState<ClubYardages>({});
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
-  const handleStartCall = async (yardages: ClubYardages) => {
-    setClubYardages(yardages);
+  const handleStartCall = async (profile: UserProfile, course: SelectedCourse) => {
+    setUserProfile(profile);
     const name = `caddy-${Date.now()}`;
     setRoomName(name);
 
@@ -25,7 +43,8 @@ function App() {
         roomName: name,
         identity: `user-${Date.now()}`,
         name: 'Golfer',
-        clubYardages: yardages,
+        userProfile: profile,
+        selectedCourse: course,
       }),
     });
 
@@ -38,31 +57,54 @@ function App() {
     setToken(data.accessToken);
   };
 
-  const handleEndCall = () => {
+  const handleEndCall = (profileUpdate?: UserProfile) => {
+    if (profileUpdate?.clubYardages && Object.keys(profileUpdate.clubYardages).length > 0) {
+      const stored = loadStoredProfile();
+      const merged = {
+        ...stored,
+        ...profileUpdate,
+        clubYardages: { ...(stored.clubYardages ?? {}), ...profileUpdate.clubYardages },
+      };
+      saveStoredProfile(merged);
+    }
     setToken(null);
     setRoomName(null);
+    setUserProfile(null);
   };
 
-  if (!token || !roomName || !VITE_LIVEKIT_URL) {
+  if (!token || !roomName || !import.meta.env.VITE_LIVEKIT_URL) {
     return (
       <PreCallView
         onStartCall={handleStartCall}
-        liveKitUrl={VITE_LIVEKIT_URL}
+        liveKitUrl={import.meta.env.VITE_LIVEKIT_URL ?? ''}
       />
     );
   }
 
   return (
     <LiveKitRoom
-      serverUrl={VITE_LIVEKIT_URL}
+      serverUrl={import.meta.env.VITE_LIVEKIT_URL}
       token={token}
       connect={true}
       audio={true}
       video={false}
-      onDisconnected={handleEndCall}
+      onDisconnected={() => handleEndCall()}
       style={{ height: '100dvh' }}
     >
-      <CallView clubYardages={clubYardages} />
+      <CallView
+        clubYardages={userProfile?.clubYardages ?? {}}
+        onProfileUpdate={(profile) => {
+          if (profile?.clubYardages && Object.keys(profile.clubYardages).length > 0) {
+            const stored = loadStoredProfile();
+            const merged = {
+              ...stored,
+              ...profile,
+              clubYardages: { ...(stored.clubYardages ?? {}), ...profile.clubYardages },
+            };
+            saveStoredProfile(merged);
+          }
+        }}
+      />
     </LiveKitRoom>
   );
 }
