@@ -134,7 +134,7 @@ export function CourseSelect({
       }}
     >
       <p style={{ fontSize: '0.95rem', color: 'var(--color-muted)', margin: 0 }}>
-        Where are you playing? We'll load course details for the caddy.
+        Where are you playing? We&apos;ll prepare a yardage book for Chip before your call.
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -236,17 +236,6 @@ export function CourseSelect({
           style={secondaryButtonStyle}
         >
           Back
-        </button>
-        <button
-          type="button"
-          onClick={() => onSelect({ name: '' })}
-          disabled={isDisabled}
-          style={{
-            ...secondaryButtonStyle,
-            color: 'var(--color-text)',
-          }}
-        >
-          Skip (no course)
         </button>
       </div>
     </div>

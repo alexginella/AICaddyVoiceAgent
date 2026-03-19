@@ -4,7 +4,7 @@ import type { SelectedCourse } from './CourseSelect';
 import { IntakeForm } from './IntakeForm';
 import { CourseSelect } from './CourseSelect';
 
-type Step = 'intake' | 'course' | 'start';
+type Step = 'intake' | 'course' | 'ready';
 
 interface PreCallViewProps {
   onStartCall: (userProfile: UserProfile, selectedCourse: SelectedCourse) => Promise<void>;
@@ -16,6 +16,7 @@ export function PreCallView({ onStartCall, liveKitUrl }: PreCallViewProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<SelectedCourse | null>(null);
 
   const handleIntakeNext = (profile: UserProfile) => {
     setUserProfile(profile);
@@ -29,7 +30,45 @@ export function PreCallView({ onStartCall, liveKitUrl }: PreCallViewProps) {
     setStep('course');
   };
 
-  const handleCourseSelect = async (selectedCourse: SelectedCourse) => {
+  const handleCourseSelect = async (course: SelectedCourse) => {
+    const name = course.name.trim();
+    if (!name) {
+      setError('Please select or enter a course. Your caddy needs a yardage book for the round.');
+      return;
+    }
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await fetch('/api/ensure-guide', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ courseName: name, force: false }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const detail = data.detail;
+        const detailStr =
+          typeof detail === 'string'
+            ? detail
+            : Array.isArray(detail)
+              ? detail.map((x: { msg?: string }) => x?.msg).filter(Boolean).join(', ')
+              : '';
+        throw new Error(detailStr || data.error || 'Failed to prepare course guide');
+      }
+      if (data.status !== 'ready') {
+        throw new Error('Course guide service did not return ready');
+      }
+      setSelectedCourse({ name });
+      setStep('ready');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to prepare course guide');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStartCall = async () => {
+    if (!selectedCourse) return;
     setError(null);
     setLoading(true);
     try {
@@ -43,6 +82,11 @@ export function PreCallView({ onStartCall, liveKitUrl }: PreCallViewProps) {
 
   const handleCourseBack = () => {
     setStep('intake');
+  };
+
+  const handleReadyBack = () => {
+    setSelectedCourse(null);
+    setStep('course');
   };
 
   const configMissing = !liveKitUrl;
@@ -96,6 +140,59 @@ export function PreCallView({ onStartCall, liveKitUrl }: PreCallViewProps) {
           loading={loading}
           disabled={configMissing}
         />
+      )}
+
+      {step === 'ready' && selectedCourse && (
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1rem',
+            maxWidth: '360px',
+            width: '100%',
+            alignItems: 'stretch',
+          }}
+        >
+          <p style={{ fontSize: '0.95rem', color: 'var(--color-muted)', margin: 0, textAlign: 'center' }}>
+            Yardage book ready for <strong>{selectedCourse.name}</strong>. Start your call when you&apos;re ready—Chip will use it on the round.
+          </p>
+          <button
+            type="button"
+            onClick={handleStartCall}
+            disabled={loading || configMissing}
+            style={{
+              padding: '1rem 1.5rem',
+              fontSize: '1.1rem',
+              fontWeight: 600,
+              borderRadius: '0.5rem',
+              background: 'var(--color-accent)',
+              color: 'var(--color-bg)',
+              border: 'none',
+              cursor: loading || configMissing ? 'not-allowed' : 'pointer',
+              opacity: loading || configMissing ? 0.7 : 1,
+              minHeight: '48px',
+            }}
+          >
+            {loading ? 'Connecting…' : 'Start call'}
+          </button>
+          <button
+            type="button"
+            onClick={handleReadyBack}
+            disabled={loading}
+            style={{
+              padding: '1rem',
+              fontSize: '1rem',
+              borderRadius: '0.5rem',
+              background: 'var(--color-surface)',
+              color: 'var(--color-muted)',
+              border: '1px solid transparent',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              minHeight: '48px',
+            }}
+          >
+            Change course
+          </button>
+        </div>
       )}
     </div>
   );

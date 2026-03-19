@@ -21,7 +21,7 @@ from livekit.plugins import noise_cancellation, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 from caddy_agent import CaddyAgent
-from rag import get_or_create_rag_for_course, get_rag_lookup, init_rag
+from rag import get_rag_for_course, get_rag_lookup, init_rag
 
 logger = logging.getLogger("agent")
 
@@ -67,10 +67,10 @@ async def my_agent(ctx: JobContext):
     course_name = (selected_course.get("name") or "").strip()
     club_yardages = user_profile.get("clubYardages") or meta.get("clubYardages") or {}
 
-    # Use per-course RAG when a course is selected
+    # Per-course RAG from index built by Course Guide Service (read-only; no generation here)
     rag_lookup = ctx.proc.userdata.get("rag_lookup") or get_rag_lookup()
     if course_name:
-        rag_lookup = await get_or_create_rag_for_course(course_name)
+        rag_lookup = await get_rag_for_course(course_name)
 
     session = AgentSession(
         stt=inference.STT(model="deepgram/nova-3", language="multi"),

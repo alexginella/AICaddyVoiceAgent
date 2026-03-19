@@ -1,0 +1,16 @@
+{
+  "name": "aicaddy-voice-agent",
+  "private": true,
+  "description": "Run Course Guide API, token server, Vite, and LiveKit agent together",
+  "scripts": {
+    "start": "npm run dev",
+    "dev": "concurrently -k -n guide,api,vite,agent -c blue,green,cyan,magenta \"npm run dev:guide\" \"npm run dev:api\" \"npm run dev:vite\" \"npm run dev:agent\"",
+    "dev:guide": "cd agent && uv run uvicorn guide_service_app:app --app-dir src --host 127.0.0.1 --port 8765",
+    "dev:api": "cd frontend && node api-server.js",
+    "dev:vite": "cd frontend && npm run dev",
+    "dev:agent": "cd agent && uv run src/agent.py dev"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

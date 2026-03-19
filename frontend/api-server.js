@@ -17,7 +17,7 @@ const PORT = 3001;
 
 const handler = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
@@ -138,6 +138,43 @@ out body;>;out skel qt;`;
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: e?.message || 'Unknown error' }));
+    }
+    return;
+  }
+
+  if (req.url === '/api/ensure-guide' && req.method === 'POST') {
+    try {
+      const guideUrl = process.env.GUIDE_SERVICE_URL || 'http://127.0.0.1:8765';
+      const body = await new Promise((resolve, reject) => {
+        let data = '';
+        req.on('data', (c) => (data += c));
+        req.on('end', () => {
+          try {
+            resolve(JSON.parse(data || '{}'));
+          } catch {
+            resolve({});
+          }
+        });
+        req.on('error', reject);
+      });
+      const r = await fetch(`${guideUrl.replace(/\/$/, '')}/ensure-guide`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const text = await r.text();
+      res.writeHead(r.status, { 'Content-Type': 'application/json' });
+      res.end(text);
+    } catch (e) {
+      console.error(e);
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error:
+            e?.message ||
+            'Course guide service unavailable. Start it: cd agent && uv run uvicorn guide_service_app:app --app-dir src --host 127.0.0.1 --port 8765',
+        }),
+      );
     }
     return;
   }
