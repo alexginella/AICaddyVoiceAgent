@@ -2,12 +2,21 @@ import { useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import type { UserProfile } from './IntakeForm';
+import {
+  clearCaddyProfile,
+  hasCompletedOnboarding,
+  loadCaddyProfile,
+  markOnboardingDone,
+  recordPreparedCourse,
+  userProfileFromStorage,
+} from '@/lib/caddyProfile';
+import type { UserProfile } from '@/types/userProfile';
 import type { SelectedCourse } from './CourseSelect';
 import { IntakeForm } from './IntakeForm';
 import { CourseSelect } from './CourseSelect';
+import { UserProfileHome } from './UserProfileHome';
 
-type Step = 'intake' | 'course' | 'ready';
+type Step = 'home' | 'intake' | 'course' | 'ready';
 
 interface PreCallViewProps {
   onStartCall: (userProfile: UserProfile, selectedCourse: SelectedCourse) => Promise<void>;
@@ -15,21 +24,24 @@ interface PreCallViewProps {
 }
 
 export function PreCallView({ onStartCall, liveKitUrl }: PreCallViewProps) {
-  const [step, setStep] = useState<Step>('intake');
+  const [step, setStep] = useState<Step>(() => (hasCompletedOnboarding() ? 'home' : 'intake'));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(() =>
+    hasCompletedOnboarding() ? userProfileFromStorage() : null
+  );
   const [selectedCourse, setSelectedCourse] = useState<SelectedCourse | null>(null);
 
   const handleIntakeNext = (profile: UserProfile) => {
-    setUserProfile(profile);
+    markOnboardingDone(profile);
+    setUserProfile(userProfileFromStorage());
     setStep('course');
   };
 
   const handleIntakeSkip = () => {
-    setUserProfile({
-      handedness: 'right',
-    });
+    const minimal: UserProfile = { handedness: 'right' };
+    markOnboardingDone(minimal);
+    setUserProfile(userProfileFromStorage());
     setStep('course');
   };
 
@@ -61,6 +73,7 @@ export function PreCallView({ onStartCall, liveKitUrl }: PreCallViewProps) {
       if (data.status !== 'ready') {
         throw new Error('Course guide service did not return ready');
       }
+      recordPreparedCourse(name);
       setSelectedCourse({ name });
       setStep('ready');
     } catch (e) {
@@ -75,7 +88,8 @@ export function PreCallView({ onStartCall, liveKitUrl }: PreCallViewProps) {
     setError(null);
     setLoading(true);
     try {
-      await onStartCall(userProfile ?? { handedness: 'right' }, selectedCourse);
+      const profile = userProfile ?? userProfileFromStorage();
+      await onStartCall(profile, selectedCourse);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to start call');
     } finally {
@@ -84,7 +98,14 @@ export function PreCallView({ onStartCall, liveKitUrl }: PreCallViewProps) {
   };
 
   const handleCourseBack = () => {
-    setStep('intake');
+    setSelectedCourse(null);
+    setError(null);
+    if (hasCompletedOnboarding()) {
+      setUserProfile(userProfileFromStorage());
+      setStep('home');
+    } else {
+      setStep('intake');
+    }
   };
 
   const handleReadyBack = () => {
@@ -92,11 +113,26 @@ export function PreCallView({ onStartCall, liveKitUrl }: PreCallViewProps) {
     setStep('course');
   };
 
+  const handleClearProfile = () => {
+    if (
+      !window.confirm(
+        'Erase your saved profile, yardages, and yardage book list on this device? This cannot be undone.'
+      )
+    ) {
+      return;
+    }
+    clearCaddyProfile();
+    setUserProfile(null);
+    setSelectedCourse(null);
+    setError(null);
+    setStep('intake');
+  };
+
   const configMissing = !liveKitUrl;
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-6 p-6">
-      <Card className="w-full max-w-md border-border/80 bg-card/90 shadow-lg ring-1 ring-primary/10">
+      <Card className="w-full max-w-lg border-border/80 bg-card/90 shadow-lg ring-1 ring-primary/10">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl text-primary">Chip the AI Caddy</CardTitle>
           <CardDescription className="text-base">
@@ -119,6 +155,24 @@ export function PreCallView({ onStartCall, liveKitUrl }: PreCallViewProps) {
             </Alert>
           )}
 
+          {step === 'home' && (
+            <UserProfileHome
+              profile={userProfileFromStorage()}
+              preparedCourses={loadCaddyProfile().preparedCourses ?? []}
+              onNewRound={() => {
+                setError(null);
+                setUserProfile(userProfileFromStorage());
+                setStep('course');
+              }}
+              onEditProfile={() => {
+                setError(null);
+                setStep('intake');
+              }}
+              onClearProfile={handleClearProfile}
+              disabled={configMissing}
+            />
+          )}
+
           {step === 'intake' && (
             <IntakeForm
               onSubmit={handleIntakeNext}
@@ -129,12 +183,30 @@ export function PreCallView({ onStartCall, liveKitUrl }: PreCallViewProps) {
           )}
 
           {step === 'course' && (
-            <CourseSelect
-              onSelect={handleCourseSelect}
-              onBack={handleCourseBack}
-              loading={loading}
-              disabled={configMissing}
-            />
+            <>
+              {hasCompletedOnboarding() && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="self-start text-muted-foreground"
+                  onClick={() => {
+                    setError(null);
+                    setUserProfile(userProfileFromStorage());
+                    setStep('home');
+                  }}
+                  disabled={configMissing}
+                >
+                  ← Profile
+                </Button>
+              )}
+              <CourseSelect
+                onSelect={handleCourseSelect}
+                onBack={handleCourseBack}
+                loading={loading}
+                disabled={configMissing}
+              />
+            </>
           )}
 
           {step === 'ready' && selectedCourse && (

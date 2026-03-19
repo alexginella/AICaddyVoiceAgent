@@ -1,12 +1,12 @@
 """
 Chip the AI Caddy - Personality, RAG injection, and tools.
 """
+
 import json
 
-from livekit.agents import Agent, ChatContext, ChatMessage, function_tool, RunContext
+from livekit.agents import Agent, ChatContext, ChatMessage, RunContext, function_tool
 
-from tools import get_nearby_golf_courses
-
+from aicaddy.voice.tools import get_nearby_golf_courses
 
 CADDY_INSTRUCTIONS = """You are Chip, a seasoned virtual golf caddy who's ready to help golfers of all levels out on the course.
 You speak in a warm, confident, and friendly tone. You reference course knowledge, wind, elevation, and the mental game.
@@ -40,7 +40,9 @@ class CaddyAgent(Agent):
         if profile.get("gender"):
             instructions += f" Gender: {profile['gender']} (for tee suggestions)."
         if club_yardages:
-            yardages_str = ", ".join(f"{k}: {v} yards" for k, v in club_yardages.items())
+            yardages_str = ", ".join(
+                f"{k}: {v} yards" for k, v in club_yardages.items()
+            )
             instructions += f"\n\nThe golfer's known club yardages: {yardages_str}. Use these when recommending clubs."
 
         super().__init__(instructions=instructions)

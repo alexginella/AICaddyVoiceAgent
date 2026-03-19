@@ -172,7 +172,7 @@ out body;>;out skel qt;`;
         JSON.stringify({
           error:
             e?.message ||
-            'Course guide service unavailable. Start it: cd agent && uv run uvicorn guide_service_app:app --app-dir src --host 127.0.0.1 --port 8765',
+            'Course guide service unavailable. Start it: cd agent && uv run uvicorn aicaddy.guide.service_app:app --app-dir src --host 127.0.0.1 --port 8765',
         }),
       );
     }

@@ -2,24 +2,25 @@
 RAG over course yardage book PDF using LlamaIndex and Chroma.
 Supports static yardage_book.pdf and per-course guides (indexed by Course Guide Service).
 """
-import os
-from pathlib import Path
 
-from guide_common import (
+import os
+
+from aicaddy.guide.common import (
     chroma_collection_name_for_course,
+    documents_from_pdf_with_hole_meta,
     index_slug,
     vector_store_dir,
 )
+from aicaddy.paths import agent_root
 
 # Lazily initialized
 _rag_query_engine = None
 _course_lookups: dict[str, object] = {}
 
 
-def _get_data_path() -> Path:
+def _get_data_path():
     """Path to default yardage book PDF."""
-    base = Path(__file__).resolve().parent.parent
-    return base / "data" / "yardage_book.pdf"
+    return agent_root() / "data" / "yardage_book.pdf"
 
 
 async def _noop_rag_lookup(query: str) -> str:
@@ -89,8 +90,6 @@ def init_rag():
     vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
 
     try:
-        from guide_common import documents_from_pdf_with_hole_meta
-
         documents = documents_from_pdf_with_hole_meta(data_path, "yardage_book")
         if not documents:
             return _noop_rag_lookup

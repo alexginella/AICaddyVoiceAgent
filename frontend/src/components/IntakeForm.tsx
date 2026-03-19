@@ -10,38 +10,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { loadCaddyProfile, persistIntakeDraft } from '@/lib/caddyProfile';
+import type { UserProfile } from '@/types/userProfile';
 import { cn } from '@/lib/utils';
 
-export type UserProfile = {
-  handicap?: number;
-  age?: number;
-  handedness: 'left' | 'right';
-  gender?: 'male' | 'female' | 'other';
-  clubs?: string;
-  clubYardages?: Record<string, number>;
-};
-
-const STORAGE_KEY = 'caddy-user-profile';
-
-function loadStored(): Partial<UserProfile> {
-  try {
-    const s = localStorage.getItem(STORAGE_KEY);
-    if (s) {
-      return JSON.parse(s) as Partial<UserProfile>;
-    }
-  } catch {
-    // ignore
-  }
-  return {};
-}
-
-function saveStored(profile: UserProfile) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
-  } catch {
-    // ignore
-  }
-}
+export type { UserProfile };
 
 interface IntakeFormProps {
   onSubmit: (profile: UserProfile) => void;
@@ -57,7 +30,7 @@ export function IntakeForm({
   disabled,
 }: IntakeFormProps) {
   const [profile, setProfile] = useState<UserProfile>(() => {
-    const stored = loadStored();
+    const stored = loadCaddyProfile();
     return {
       handedness: (stored.handedness as 'left' | 'right') ?? 'right',
       handicap: stored.handicap,
@@ -71,7 +44,7 @@ export function IntakeForm({
 
   useEffect(() => {
     if (saveToStorage) {
-      saveStored(profile);
+      persistIntakeDraft(profile);
     }
   }, [profile, saveToStorage]);
 

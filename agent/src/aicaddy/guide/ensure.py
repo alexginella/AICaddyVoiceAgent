@@ -1,6 +1,7 @@
 """
 Ensure a course yardage PDF exists and is indexed into Chroma (lookup-first).
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -9,7 +10,7 @@ from pathlib import Path
 
 import chromadb
 
-from guide_common import (
+from aicaddy.guide.common import (
     chroma_collection_name_for_course,
     course_pdf_path,
     guide_fully_ready,
@@ -35,7 +36,9 @@ async def ensure_course_guide(course_name: str, *, force: bool = False) -> dict:
     logger.info("ensure_course_guide start course=%r force=%s", cn, force)
 
     if force:
-        logger.info("ensure_course_guide force=true: removing PDF and Chroma for %r", cn)
+        logger.info(
+            "ensure_course_guide force=true: removing PDF and Chroma for %r", cn
+        )
         pdf_path = course_pdf_path(cn)
         if pdf_path.is_file():
             pdf_path.unlink()
@@ -55,7 +58,7 @@ async def ensure_course_guide(course_name: str, *, force: bool = False) -> dict:
         only_index_from_existing_pdf,
     )
 
-    from course_guide import generate_course_guide
+    from aicaddy.guide.course_guide import generate_course_guide
 
     pdf_path: Path = await generate_course_guide(cn)
     index_pdf_to_chroma(cn, pdf_path)
@@ -67,4 +70,8 @@ async def ensure_course_guide(course_name: str, *, force: bool = False) -> dict:
         rebuilt_index_only,
         pdf_path,
     )
-    return {"status": "ready", "cached": False, "rebuilt_index_only": rebuilt_index_only}
+    return {
+        "status": "ready",
+        "cached": False,
+        "rebuilt_index_only": rebuilt_index_only,
+    }

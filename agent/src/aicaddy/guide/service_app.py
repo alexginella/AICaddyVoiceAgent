@@ -2,20 +2,22 @@
 Course Guide Service — HTTP API for lookup-first yardage PDF + Chroma indexing.
 
 Run from repo (dev):
-  cd agent && uv sync && uv run uvicorn guide_service_app:app --app-dir src --host 127.0.0.1 --port 8765
+  cd agent && uv sync && uv run uvicorn aicaddy.guide.service_app:app --app-dir src --host 127.0.0.1 --port 8765
 """
+
 from __future__ import annotations
 
 import logging
 import os
-from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
 
-_env_path = Path(__file__).resolve().parent.parent.parent / ".env"
+from aicaddy.paths import repo_root
+
+_env_path = repo_root() / ".env"
 load_dotenv(_env_path)
 
 _root = logging.getLogger()
@@ -56,14 +58,14 @@ async def ensure_guide(body: EnsureGuideBody):
             detail="OPENAI_API_KEY is not configured (required for embeddings)",
         )
     try:
-        from course_guide import (
+        from aicaddy.guide.course_guide import (
             GolfCourseAPIAuthError,
             GolfCourseAPIConfigError,
             GolfCourseAPIError,
             GolfCourseAPIHTTPError,
             GolfCourseAPINoDataError,
         )
-        from guide_ensure import ensure_course_guide
+        from aicaddy.guide.ensure import ensure_course_guide
 
         result = await ensure_course_guide(course, force=force)
         log.info(
@@ -75,7 +77,9 @@ async def ensure_guide(body: EnsureGuideBody):
         )
         return result
     except GolfCourseAPIAuthError as e:
-        log.warning("ensure-guide Golf Course API auth failed course_name=%r: %s", course, e)
+        log.warning(
+            "ensure-guide Golf Course API auth failed course_name=%r: %s", course, e
+        )
         raise HTTPException(status_code=401, detail=str(e)) from e
     except GolfCourseAPIConfigError as e:
         log.warning("ensure-guide config error course_name=%r: %s", course, e)

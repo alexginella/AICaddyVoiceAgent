@@ -12,12 +12,13 @@ Flat shape (docs sample) is also accepted::
 Search GET /v1/search → { "courses": [ { "id", "club_name", "course_name", "location" } ] }
 Docs: https://api.golfcourseapi.com/docs/api/
 """
+
 from __future__ import annotations
 
 import logging
 from typing import Any
 
-from golf_course_api_errors import GolfCourseAPINoDataError
+from aicaddy.guide.api_errors import GolfCourseAPINoDataError
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +98,9 @@ def pick_tee_box_with_holes(tees: Any) -> tuple[str, dict[str, Any]]:
                 continue
             tee_name = str(tee.get("tee_name") or "tee")
             total_yards = tee.get("total_yards")
-            yards_sort = int(total_yards) if isinstance(total_yards, (int, float)) else 0
+            yards_sort = (
+                int(total_yards) if isinstance(total_yards, (int, float)) else 0
+            )
             label = f"{gender}/{tee_name}"
             candidates.append((label, tee, yards_sort))
 
@@ -166,9 +169,11 @@ def collect_all_tee_summaries(tees: dict[str, Any]) -> list[dict[str, Any]]:
             d["hole_count"] = len(h)
             rows.append(d)
     rows.sort(
-        key=lambda r: int(r["total_yards"] or 0)
-        if isinstance(r.get("total_yards"), (int, float))
-        else 0,
+        key=lambda r: (
+            int(r["total_yards"] or 0)
+            if isinstance(r.get("total_yards"), (int, float))
+            else 0
+        ),
         reverse=True,
     )
     return rows
@@ -249,9 +254,7 @@ def format_all_tees_summary_lines(summaries: list[dict[str, Any]]) -> list[str]:
         bogey_bit = f", Bogey {bg}" if bg else ""
         nine_bit = ""
         if any((fc, fs, fbo, bc, bs, bbo)):
-            nine_bit = (
-                f" | F9 CR/S/BR {fc}/{fs}/{fbo} | B9 CR/S/BR {bc}/{bs}/{bbo}"
-            )
+            nine_bit = f" | F9 CR/S/BR {fc}/{fs}/{fbo} | B9 CR/S/BR {bc}/{bs}/{bbo}"
         lines.append(
             f"- {label}: {yds} yds{meter_bit}, Par {par}, "
             f"CR {cr}, Slope {sl}{bogey_bit}, {hc} holes{nine_bit}"
@@ -351,7 +354,9 @@ def first_search_hit_course_id(courses: list[Any]) -> int:
         _fail_schema("Each search 'courses' element must be an object.")
     cid = hit.get("id")
     if cid is None:
-        _fail_schema("Search hit missing numeric 'id'; cannot call GET /v1/courses/{id}.")
+        _fail_schema(
+            "Search hit missing numeric 'id'; cannot call GET /v1/courses/{id}."
+        )
     try:
         return int(cid)
     except (TypeError, ValueError) as e:

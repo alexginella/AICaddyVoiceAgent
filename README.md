@@ -87,7 +87,7 @@ If you prefer separate terminals:
 ```bash
 cd agent
 uv sync
-uv run uvicorn guide_service_app:app --app-dir src --host 127.0.0.1 --port 8765
+uv run uvicorn aicaddy.guide.service_app:app --app-dir src --host 127.0.0.1 --port 8765
 ```
 
 ### 4. Agent (Python)
@@ -176,17 +176,22 @@ AICaddyVoiceAgent/
 ├── package.json         # npm run dev — starts guide API, api-server, Vite, agent (concurrently)
 ├── agent/               # Python LiveKit agent
 │   ├── src/
-│   │   ├── agent.py
-│   │   ├── caddy_agent.py
-│   │   ├── guide_common.py     # Shared slugs, paths, PDF → Chroma indexing
-│   │   ├── guide_ensure.py     # Lookup-first ensure pipeline
-│   │   ├── guide_service_app.py # FastAPI Course Guide Service
-│   │   ├── course_guide.py            # Yardage PDF generation (GolfCourseAPI + LLM)
-│   │   ├── course_guide_prompts.py   # LLM prompts for per-hole expansion
-│   │   ├── golf_course_api_errors.py # Exceptions for API / guide failures
-│   │   ├── golf_course_api_schema.py # Parse responses per api.golfcourseapi.com docs
-│   │   ├── rag.py
-│   │   └── tools.py
+│   │   ├── agent.py              # LiveKit CLI shim → aicaddy.voice.main
+│   │   └── aicaddy/
+│   │       ├── paths.py          # agent/ + repo roots for data and .env
+│   │       ├── guide/          # Course guide service + PDF/API pipeline
+│   │       │   ├── common.py   # Slugs, paths, PDF → Chroma indexing
+│   │       │   ├── ensure.py   # Lookup-first ensure pipeline
+│   │       │   ├── service_app.py  # FastAPI Course Guide Service
+│   │       │   ├── course_guide.py # Yardage PDF (GolfCourseAPI + LLM)
+│   │       │   ├── prompts.py
+│   │       │   ├── api_errors.py
+│   │       │   └── api_schema.py
+│   │       └── voice/          # LiveKit worker
+│   │           ├── main.py
+│   │           ├── caddy_agent.py
+│   │           ├── rag.py
+│   │           └── tools.py
 │   ├── data/
 │   │   ├── yardage_book.pdf
 │   │   └── courses/         # Generated per-course PDFs

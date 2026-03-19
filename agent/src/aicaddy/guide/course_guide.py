@@ -4,6 +4,7 @@ Requires GolfCourseAPI for hole data; expands each hole via LLM. No non-API fall
 
 API schema: https://api.golfcourseapi.com/docs/api/
 """
+
 from __future__ import annotations
 
 import logging
@@ -12,23 +13,23 @@ from pathlib import Path
 
 import openai
 
-from course_guide_prompts import (
-    HOLE_YARDAGE_BOOK_SYSTEM,
-    hole_yardage_book_user_message,
-)
-from golf_course_api_errors import (
+from aicaddy.guide.api_errors import (
     GolfCourseAPIAuthError,
     GolfCourseAPIConfigError,
     GolfCourseAPIError,
     GolfCourseAPIHTTPError,
     GolfCourseAPINoDataError,
 )
-from golf_course_api_schema import (
+from aicaddy.guide.api_schema import (
     build_guide_payload_from_course_detail,
     first_search_hit_course_id,
     parse_search_response,
 )
-from guide_common import course_pdf_path, courses_data_dir
+from aicaddy.guide.common import course_pdf_path, courses_data_dir
+from aicaddy.guide.prompts import (
+    HOLE_YARDAGE_BOOK_SYSTEM,
+    hole_yardage_book_user_message,
+)
 
 __all__ = [
     "GolfCourseAPIAuthError",

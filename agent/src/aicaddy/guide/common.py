@@ -2,6 +2,7 @@
 Shared paths, slugs, and Chroma indexing for course yardage PDFs.
 Used by the Course Guide Service and the voice agent RAG layer.
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -9,9 +10,7 @@ import os
 import re
 from pathlib import Path
 
-
-def _agent_root() -> Path:
-    return Path(__file__).resolve().parent.parent
+from aicaddy.paths import agent_root as _agent_root
 
 
 def courses_data_dir() -> Path:

@@ -8,4 +8,4 @@ alwaysApply: true
 - **Respect the existing structure**: This project has an `agent/` (Python backend) and `frontend/` (React) layout. Add new code in the appropriate area.
 - **Avoid monolithic files**: Split logic into focused modules. Extract reusable logic into hooks, utilities, or shared components instead of bloating single files.
 - **Minimal, targeted changes**: When editing, change only what’s necessary. Don’t refactor unrelated code unless explicitly requested.
-- **Organized additions**: Put new components under `frontend/src/components/`, API routes under `frontend/api/`, agent logic under `agent/src/`, and utilities in dedicated modules.
+- **Organized additions**: Put new components under `frontend/src/components/`, API routes under `frontend/api/`. Python agent code lives under `agent/src/aicaddy/` (`guide/` for course PDF + FastAPI service, `voice/` for LiveKit + RAG hooks); keep `agent/src/agent.py` as the thin CLI entry if you add workers.

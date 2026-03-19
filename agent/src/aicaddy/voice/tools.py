@@ -1,6 +1,7 @@
 """
 Tools for the AI Caddy - get_nearby_golf_courses (uses Overpass/OpenStreetMap).
 """
+
 import math
 from urllib.parse import quote
 
@@ -12,11 +13,16 @@ RADIUS_M = 50000
 
 
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    R = 6371
+    earth_radius_km = 6371
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
-    a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
-    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(math.radians(lat1))
+        * math.cos(math.radians(lat2))
+        * math.sin(dlon / 2) ** 2
+    )
+    return earth_radius_km * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
 def _parse_dist_km(d: str | None) -> float:
@@ -90,4 +96,8 @@ out body;>;out skel qt;
 
     results.sort(key=lambda x: _parse_dist_km(x[1]))
     lines = [f"- {n}" + (f" ({d})" if d else "") for n, d in results[:5]]
-    return f"Golf courses near {location}:\n" + "\n".join(lines) if lines else f"No golf courses found near {location}."
+    return (
+        f"Golf courses near {location}:\n" + "\n".join(lines)
+        if lines
+        else f"No golf courses found near {location}."
+    )

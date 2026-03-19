@@ -3,28 +3,14 @@ import { LiveKitRoom } from '@livekit/components-react';
 import '@livekit/components-styles';
 import { CallView } from './components/CallView';
 import { PreCallView } from './components/PreCallView';
-import type { UserProfile } from './components/IntakeForm';
+import {
+  loadCaddyProfile,
+  mergeClubYardages,
+  persistAfterCallEnd,
+  userProfileFromStorage,
+} from './lib/caddyProfile';
+import type { UserProfile } from './types/userProfile';
 import type { SelectedCourse } from './components/CourseSelect';
-
-const STORAGE_KEY = 'caddy-user-profile';
-
-function loadStoredProfile(): Partial<UserProfile> {
-  try {
-    const s = localStorage.getItem(STORAGE_KEY);
-    if (s) return JSON.parse(s) as Partial<UserProfile>;
-  } catch {
-    // ignore
-  }
-  return {};
-}
-
-function saveStoredProfile(profile: Partial<UserProfile>) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
-  } catch {
-    // ignore
-  }
-}
 
 function App() {
   const [token, setToken] = useState<string | null>(null);
@@ -57,16 +43,8 @@ function App() {
     setToken(data.accessToken);
   };
 
-  const handleEndCall = (profileUpdate?: UserProfile) => {
-    if (profileUpdate?.clubYardages && Object.keys(profileUpdate.clubYardages).length > 0) {
-      const stored = loadStoredProfile();
-      const merged = {
-        ...stored,
-        ...profileUpdate,
-        clubYardages: { ...(stored.clubYardages ?? {}), ...profileUpdate.clubYardages },
-      };
-      saveStoredProfile(merged);
-    }
+  const handleEndCall = () => {
+    persistAfterCallEnd(userProfile);
     setToken(null);
     setRoomName(null);
     setUserProfile(null);
@@ -81,6 +59,8 @@ function App() {
     );
   }
 
+  const yardagesForCall = userProfile?.clubYardages ?? loadCaddyProfile().clubYardages ?? {};
+
   return (
     <LiveKitRoom
       serverUrl={import.meta.env.VITE_LIVEKIT_URL}
@@ -92,17 +72,17 @@ function App() {
       className="h-dvh"
     >
       <CallView
-        clubYardages={userProfile?.clubYardages ?? {}}
+        clubYardages={yardagesForCall}
         onProfileUpdate={(profile) => {
-          if (profile?.clubYardages && Object.keys(profile.clubYardages).length > 0) {
-            const stored = loadStoredProfile();
-            const merged = {
-              ...stored,
-              ...profile,
-              clubYardages: { ...(stored.clubYardages ?? {}), ...profile.clubYardages },
+          if (!profile?.clubYardages || Object.keys(profile.clubYardages).length === 0) return;
+          mergeClubYardages(profile.clubYardages);
+          setUserProfile((prev) => {
+            const base = prev ?? userProfileFromStorage();
+            return {
+              ...base,
+              clubYardages: { ...base.clubYardages, ...profile.clubYardages },
             };
-            saveStoredProfile(merged);
-          }
+          });
         }}
       />
     </LiveKitRoom>
