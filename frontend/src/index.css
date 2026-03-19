@@ -1,0 +1,28 @@
+/* Mobile-first, on-course friendly */
+:root {
+  --color-bg: #0d1f0d;
+  --color-surface: #1a2f1a;
+  --color-accent: #4ade80;
+  --color-text: #f0fdf4;
+  --color-muted: #86efac;
+  --safe-top: env(safe-area-inset-top);
+  --safe-bottom: env(safe-area-inset-bottom);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+  min-height: 100dvh;
+  padding: var(--safe-top) 0 var(--safe-bottom);
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100dvh;
+}
