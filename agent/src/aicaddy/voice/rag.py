@@ -3,6 +3,7 @@ RAG over course yardage book PDF using LlamaIndex and Chroma.
 Supports static yardage_book.pdf and per-course guides (indexed by Course Guide Service).
 """
 
+import logging
 import os
 
 from aicaddy.guide.common import (
@@ -12,6 +13,8 @@ from aicaddy.guide.common import (
     vector_store_dir,
 )
 from aicaddy.paths import agent_root
+
+logger = logging.getLogger(__name__)
 
 # Lazily initialized
 _rag_query_engine = None
@@ -38,6 +41,7 @@ def _make_sync_rag_lookup(qe):
             result = qe.query(query)
             return str(result).strip() if result else ""
         except Exception:
+            logger.exception("RAG query engine failed")
             return ""
 
     return lookup
@@ -163,6 +167,7 @@ async def get_rag_for_course(course_name: str):
             result = qe.query(query)
             return str(result).strip() if result else ""
         except Exception:
+            logger.exception("RAG query failed (per-course index)")
             return ""
 
     async def _async_lookup(query: str) -> str:

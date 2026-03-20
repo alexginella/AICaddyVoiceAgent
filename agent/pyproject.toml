@@ -22,6 +22,9 @@ dependencies = [
     "openai>=1.0",
     "httpx>=0.25",
     "fpdf2>=2.7",
+    "livekit-plugins-openai>=1.5",
+    "livekit-plugins-deepgram>=1.5",
+    "livekit-plugins-cartesia>=1.5",
 ]
 
 [dependency-groups]

@@ -3,10 +3,13 @@ Chip the AI Caddy - Personality, RAG injection, and tools.
 """
 
 import json
+import logging
 
 from livekit.agents import Agent, ChatContext, ChatMessage, RunContext, function_tool
 
 from aicaddy.voice.tools import get_nearby_golf_courses
+
+logger = logging.getLogger(__name__)
 
 CADDY_INSTRUCTIONS = """You are a professional golf caddy. Your goal is to help the golfer reach their scoring target using your course knowldege and strategic expertise.
 Work collaboratively with the player through each hole to achieve their goal. The best caddies have a deep unserstanding of the course
@@ -80,15 +83,20 @@ class CaddyAgent(Agent):
         try:
             rag_content = await self._rag_lookup(text)
             if rag_content and rag_content.strip():
+                # LiveKit orders chat items by created_at; async RAG finishes after the user
+                # message timestamp unless we pin the injection slightly earlier. Otherwise the
+                # RAG block appears after the user turn and the LLM largely ignores it.
+                # See https://github.com/livekit/agents/issues/5053
                 turn_ctx.add_message(
                     role="assistant",
                     content=(
                         "Relevant yardage-book material—use it naturally in your answer; don't read it word for word:\n"
                         f"{rag_content}"
                     ),
+                    created_at=new_message.created_at - 1e-3,
                 )
         except Exception:
-            pass
+            logger.exception("RAG lookup failed for user turn")
 
     @function_tool()
     async def get_nearby_golf_courses_tool(
