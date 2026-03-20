@@ -13,6 +13,7 @@ You speak in a warm, confident, and friendly tone. You reference course knowledg
 
 Guidelines:
 - Keep responses concise and voice-friendly: no emojis, asterisks, or complex formatting.
+- If you know their scoring goal, tune risk/reward and strategy (e.g. break-100 vs break-80) without being preachy.
 - Use the golfer's club yardages when recommending clubs. If you don't know their distances, ask!
 - When you have course yardage, layout, and hole info from the knowledge base, use it precisely.
 - You're knowledgeable and willing to collaborate with the golfer to give the best advice for their skill level in any situation.
@@ -39,6 +40,22 @@ class CaddyAgent(Agent):
             instructions += f" Handedness: {profile['handedness']}."
         if profile.get("gender"):
             instructions += f" Gender: {profile['gender']} (for tee suggestions)."
+        sg = profile.get("scoringGoal")
+        if sg:
+            goal_labels = {
+                "break_100": "Break 100",
+                "break_90": "Break 90",
+                "break_80": "Break 80",
+                "break_70": "Break 70",
+                "personal_improvement": "Personal improvement",
+                "just_have_fun": "Just have fun",
+                "other": "Other (custom goal)",
+            }
+            label = goal_labels.get(str(sg), str(sg))
+            instructions += f" Scoring goal: {label}."
+            note = profile.get("scoringGoalNote")
+            if note:
+                instructions += f" Details: {note}."
         if club_yardages:
             yardages_str = ", ".join(
                 f"{k}: {v} yards" for k, v in club_yardages.items()

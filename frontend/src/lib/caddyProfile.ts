@@ -18,7 +18,9 @@ export function loadCaddyProfile(): CaddyStoredProfile {
   try {
     const s = localStorage.getItem(CADDY_PROFILE_STORAGE_KEY);
     if (!s) return {};
-    const data = JSON.parse(s) as CaddyStoredProfile;
+    const raw = JSON.parse(s) as Record<string, unknown>;
+    delete raw.clubs;
+    const data = raw as CaddyStoredProfile;
     return {
       ...data,
       preparedCourses: Array.isArray(data.preparedCourses) ? data.preparedCourses : [],
@@ -35,9 +37,11 @@ function writeProfile(next: CaddyStoredProfile) {
 /** Replace entire stored profile (rare; prefer patch helpers) */
 export function saveCaddyProfile(updates: Partial<CaddyStoredProfile>) {
   const prev = loadCaddyProfile();
+  // When callers pass clubYardages it is always the full map (see mergeClubYardages).
+  // Merging into prev would keep removed keys, so deletes/renames would never stick.
   const clubYardages =
     updates.clubYardages !== undefined
-      ? { ...prev.clubYardages, ...updates.clubYardages }
+      ? { ...updates.clubYardages }
       : prev.clubYardages;
   const next: CaddyStoredProfile = {
     ...prev,
@@ -57,10 +61,16 @@ export function persistIntakeDraft(profile: UserProfile) {
     age: profile.age,
     handedness: profile.handedness,
     gender: profile.gender,
-    clubs: profile.clubs,
+    scoringGoal: profile.scoringGoal,
+    scoringGoalNote: profile.scoringGoalNote,
     clubYardages:
       profile.clubYardages !== undefined ? profile.clubYardages : prev.clubYardages,
   });
+}
+
+/** Match agent/tool storage: lowercase, no spaces (e.g. "7 iron" → "7iron") */
+export function normalizeClubKey(raw: string): string {
+  return raw.trim().toLowerCase().replace(/\s+/g, '');
 }
 
 /** Merge yardages from agent tool / call */
@@ -69,6 +79,24 @@ export function mergeClubYardages(updates: Record<string, number>) {
   saveCaddyProfile({
     clubYardages: { ...prev.clubYardages, ...updates },
   });
+}
+
+export function removeClubYardage(clubKey: string) {
+  const prev = loadCaddyProfile();
+  const cy = { ...(prev.clubYardages ?? {}) };
+  delete cy[clubKey];
+  saveCaddyProfile({ clubYardages: cy });
+}
+
+/** Change stored key and/or yards (e.g. rename club). Removes oldKey after applying. */
+export function replaceClubYardageEntry(oldKey: string, newClubRaw: string, yards: number) {
+  const newKey = normalizeClubKey(newClubRaw);
+  if (!newKey || yards < 1 || yards > 400) return;
+  const prev = loadCaddyProfile();
+  const cy = { ...(prev.clubYardages ?? {}) };
+  delete cy[oldKey];
+  cy[newKey] = yards;
+  saveCaddyProfile({ clubYardages: cy });
 }
 
 export function recordPreparedCourse(courseName: string) {
@@ -127,7 +155,8 @@ export function userProfileFromStorage(): UserProfile {
     handicap: p.handicap,
     age: p.age,
     gender: p.gender,
-    clubs: p.clubs,
+    scoringGoal: p.scoringGoal,
+    scoringGoalNote: p.scoringGoalNote,
     clubYardages: p.clubYardages,
   };
 }
@@ -142,7 +171,8 @@ export function persistAfterCallEnd(session: UserProfile | null) {
     age: session.age,
     handedness: session.handedness,
     gender: session.gender,
-    clubs: session.clubs,
+    scoringGoal: session.scoringGoal,
+    scoringGoalNote: session.scoringGoalNote,
     clubYardages: fresh.clubYardages,
     preparedCourses: fresh.preparedCourses,
     onboardingComplete: fresh.onboardingComplete ?? true,

@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { loadCaddyProfile, persistIntakeDraft } from '@/lib/caddyProfile';
-import type { UserProfile } from '@/types/userProfile';
+import { SCORING_GOAL_OPTIONS, type ScoringGoalId, type UserProfile } from '@/types/userProfile';
 import { cn } from '@/lib/utils';
 
 export type { UserProfile };
@@ -36,7 +36,8 @@ export function IntakeForm({
       handicap: stored.handicap,
       age: stored.age,
       gender: stored.gender,
-      clubs: stored.clubs ?? 'standard 14',
+      scoringGoal: stored.scoringGoal,
+      scoringGoalNote: stored.scoringGoalNote,
       clubYardages: stored.clubYardages,
     };
   });
@@ -144,18 +145,47 @@ export function IntakeForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="clubs">Club set (optional)</Label>
-        <Input
-          id="clubs"
-          type="text"
-          placeholder="e.g. standard 14, half set"
-          value={profile.clubs ?? ''}
-          disabled={isLocked}
-          onChange={(e) =>
-            setProfile((p) => ({ ...p, clubs: e.target.value || undefined }))
+        <Label htmlFor="scoringGoal">Scoring goal (optional)</Label>
+        <Select
+          value={profile.scoringGoal ?? 'unspecified'}
+          onValueChange={(v) =>
+            setProfile((p) => ({
+              ...p,
+              scoringGoal:
+                v === 'unspecified' ? undefined : (v as ScoringGoalId),
+              scoringGoalNote: v === 'other' ? p.scoringGoalNote : undefined,
+            }))
           }
-          className="h-11 md:h-10"
-        />
+          disabled={isLocked}
+        >
+          <SelectTrigger id="scoringGoal" className="h-11 w-full md:h-10">
+            <SelectValue placeholder="Select a goal" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="unspecified">No specific goal</SelectItem>
+            {SCORING_GOAL_OPTIONS.map((o) => (
+              <SelectItem key={o.id} value={o.id}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {profile.scoringGoal === 'other' && (
+          <Input
+            id="scoringGoalNote"
+            type="text"
+            placeholder="Describe your goal"
+            value={profile.scoringGoalNote ?? ''}
+            disabled={isLocked}
+            onChange={(e) =>
+              setProfile((p) => ({
+                ...p,
+                scoringGoalNote: e.target.value || undefined,
+              }))
+            }
+            className="h-11 md:h-10"
+          />
+        )}
       </div>
 
       <div className="flex items-center gap-2">
