@@ -36,7 +36,7 @@ Intake Form → Course Select → Ensure yardage book (Guide Service) → Start 
 - **LlamaIndex**: RAG pipeline, PDF loading, Chroma vector store.
 - **React + Vite**: Frontend with `@livekit/components-react`, mobile-first layout.
 - **Overpass / Nominatim**: Golf course search (free, no API key).
-- **Vercel**: Frontend + token API + nearby-courses API deployment. LiveKit Cloud for media and agent hosting.
+- **Vercel**: Frontend + `/api/token`, `/api/nearby-courses`, and `/api/ensure-guide` (guide proxy) deployment. LiveKit Cloud for media and agent hosting.
 
 ---
 
@@ -135,8 +135,17 @@ Loads `.env` from the project root. Serves `/api/token`, `/api/nearby-courses`, 
 ## Deploy to Vercel
 
 1. Connect the repo to Vercel; set root to `frontend`.
-2. Add env vars: `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `VITE_LIVEKIT_URL` (Vercel provides its own URL).
-3. Deploy. The `/api/token` and `/api/nearby-courses` serverless functions run automatically.
+2. **Environment variables** — use the repo root **`.env`** (or [`.env.example`](.env.example)) as the checklist of **names**; copy values into Vercel’s project settings (do not commit `.env`).
+
+   | Name | On Vercel? | Role |
+   |------|------------|------|
+   | `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | Yes | `/api/token` |
+   | `VITE_LIVEKIT_URL` | Yes (build-time) | Browser WebSocket URL to LiveKit |
+   | `GUIDE_SERVICE_URL` | **Yes** for course prep | Server-side only. Set to the **public HTTPS origin** of your Course Guide Service (e.g. `https://guide.example.com`). `/api/ensure-guide` forwards `POST` JSON to `{GUIDE_SERVICE_URL}/ensure-guide`. |
+
+   **Not** on Vercel (use on the guide host / LiveKit worker instead): `OPENAI_API_KEY`, `GOLF_COURSE_API_KEY`, `LIVEKIT_URL`, `CADDY_VOICE_INFERENCE` — see `.env.example` comments.
+
+3. Deploy. Serverless routes: `/api/token`, `/api/nearby-courses`, `/api/ensure-guide`.
 
 ---
 
@@ -163,7 +172,7 @@ Or use AWS ECS with the included Dockerfile.
 | **Course guide generation** | Separate **Course Guide Service**; lookup-first. **Golf Course API required** for hole data; 401/403 halts with an error (no fallback). LLM expands per-hole yardage text only. PDF per course; index rebuilt from PDF if PDF exists but Chroma is empty. |
 | **Club yardages** | Voice (tool). Stored in `userProfile`. Pushed to frontend via LiveKit data channel; frontend saves to `localStorage`. |
 | **Tool call** | `get_nearby_golf_courses` uses Overpass + Nominatim |
-| **Hosting** | Frontend + token API + nearby-courses on Vercel; agent on LiveKit Cloud or AWS ECS |
+| **Hosting** | Frontend + token + nearby-courses + ensure-guide proxy on Vercel; agent on LiveKit Cloud or AWS ECS |
 | **Mobile** | Mobile-first layout; touch targets, safe areas, readable transcript |
 
 ---
