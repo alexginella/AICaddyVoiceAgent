@@ -22,10 +22,14 @@ from livekit.plugins import cartesia, deepgram, noise_cancellation, silero
 from livekit.plugins import openai as lk_openai
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
-from aicaddy.guide.common import chroma_collection_vector_count
+from aicaddy.guide.common import (
+    chroma_collection_id_for_rag,
+    chroma_collection_vector_count_for_collection,
+    vector_store_dir,
+)
 from aicaddy.paths import repo_root
 from aicaddy.voice.caddy_agent import CaddyAgent
-from aicaddy.voice.rag import get_rag_for_course, get_rag_lookup, init_rag
+from aicaddy.voice.rag import get_rag_for_course, is_noop_rag_lookup, noop_rag_lookup
 
 logger = logging.getLogger("agent")
 
@@ -90,9 +94,9 @@ def _parse_metadata(data) -> dict:
 
 
 def prewarm(proc: JobProcess):
-    """Load VAD and default RAG index at startup."""
+    """Load VAD; RAG uses per-course Chroma only (see get_rag_for_course in session)."""
     proc.userdata["vad"] = silero.VAD.load()
-    proc.userdata["rag_lookup"] = init_rag()
+    proc.userdata["rag_lookup"] = noop_rag_lookup
 
 
 server = AgentServer()
@@ -115,23 +119,49 @@ async def my_agent(ctx: JobContext):
     user_profile = meta.get("userProfile") or {}
     selected_course = meta.get("selectedCourse") or {}
     course_name = (selected_course.get("name") or "").strip()
+    guide_slug = (selected_course.get("guideSlug") or "").strip()
     club_yardages = user_profile.get("clubYardages") or meta.get("clubYardages") or {}
 
     # Per-course RAG from index built by Course Guide Service (read-only; no generation here).
-    # Only swap from default yardage_book RAG when this worker actually has that collection;
-    # otherwise get_rag_for_course returns a no-op and would disable RAG entirely.
-    rag_lookup = ctx.proc.userdata.get("rag_lookup") or get_rag_lookup()
-    if course_name:
-        n = chroma_collection_vector_count(course_name)
-        if n is not None and n > 0:
-            rag_lookup = await get_rag_for_course(course_name)
+    # Prefer guideSlug (PDF filename stem from ensure-guide) so Chroma id matches the indexed
+    # file even if selectedCourse.name differs from the string used when indexing.
+    rag_lookup = ctx.proc.userdata.get("rag_lookup") or noop_rag_lookup
+    course_vector_count: int | None = None
+    coll_id = chroma_collection_id_for_rag(
+        display_course_name=course_name,
+        guide_pdf_stem=guide_slug,
+    )
+    if coll_id:
+        course_vector_count = chroma_collection_vector_count_for_collection(coll_id)
+        if course_vector_count is not None and course_vector_count > 0:
+            rag_lookup = await get_rag_for_course(
+                course_name,
+                guide_pdf_stem=guide_slug or None,
+            )
         else:
             logger.warning(
-                "No vectors for course %r on this worker (count=%s); keeping default RAG. "
-                "Ensure agent/vector_store is deployed with the course index.",
-                course_name,
-                n,
+                "No vectors for course on this worker (collection=%r, count=%s, "
+                "selected_course=%r, guide_slug=%r); RAG disabled for this session. "
+                "Ensure agent/vector_store matches the Course Guide Service index.",
+                coll_id,
+                course_vector_count,
+                course_name or None,
+                guide_slug or None,
             )
+
+    if is_noop_rag_lookup(rag_lookup):
+        rag_source = "noop"
+    else:
+        rag_source = f"per_course:{coll_id}" if coll_id else "per_course"
+    logger.info(
+        "RAG active source: %s (vector_store=%s; selected_course=%r; guide_slug=%r; "
+        "course_chroma_count=%s)",
+        rag_source,
+        vector_store_dir(),
+        course_name or None,
+        guide_slug or None,
+        course_vector_count if coll_id else None,
+    )
 
     vmode = _voice_inference_mode()
     logger.info("Voice inference mode: %s (set CADDY_VOICE_INFERENCE to change)", vmode)

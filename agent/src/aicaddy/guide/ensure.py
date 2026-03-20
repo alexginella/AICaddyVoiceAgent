@@ -11,8 +11,9 @@ from pathlib import Path
 import chromadb
 
 from aicaddy.guide.common import (
-    chroma_collection_name_for_course,
+    chroma_collection_name_for_pdf_stem,
     course_pdf_path,
+    filesystem_slug,
     guide_fully_ready,
     index_pdf_to_chroma,
     vector_store_dir,
@@ -27,7 +28,9 @@ async def ensure_course_guide(course_name: str, *, force: bool = False) -> dict:
     If PDF exists only, index from PDF.
     Otherwise generate PDF then index.
 
-    Returns: {"status": "ready", "cached": bool, "rebuilt_index_only": bool}
+    Returns status, cache flags, and ``guideSlug`` (PDF filename stem with hyphens).
+    Clients should include ``guideSlug`` in LiveKit metadata so the voice worker resolves
+    the same Chroma collection as this service.
     """
     cn = (course_name or "").strip()
     if not cn:
@@ -42,14 +45,19 @@ async def ensure_course_guide(course_name: str, *, force: bool = False) -> dict:
         pdf_path = course_pdf_path(cn)
         if pdf_path.is_file():
             pdf_path.unlink()
-        coll_name = chroma_collection_name_for_course(cn)
+        coll_name = chroma_collection_name_for_pdf_stem(filesystem_slug(cn))
         client = chromadb.PersistentClient(path=str(vector_store_dir()))
         with contextlib.suppress(Exception):
             client.delete_collection(coll_name)
 
     if not force and guide_fully_ready(cn):
         logger.info("ensure_course_guide cache hit (PDF + index) for %r", cn)
-        return {"status": "ready", "cached": True, "rebuilt_index_only": False}
+        return {
+            "status": "ready",
+            "cached": True,
+            "rebuilt_index_only": False,
+            "guideSlug": filesystem_slug(cn),
+        }
 
     only_index_from_existing_pdf = course_pdf_path(cn).is_file()
     logger.info(
@@ -74,4 +82,5 @@ async def ensure_course_guide(course_name: str, *, force: bool = False) -> dict:
         "status": "ready",
         "cached": False,
         "rebuilt_index_only": rebuilt_index_only,
+        "guideSlug": filesystem_slug(cn),
     }

@@ -17,7 +17,8 @@ function formatPreparedDate(iso: string) {
   }
 }
 
-export type SelectedCourse = { name: string };
+/** guideSlug = PDF filename stem from ensure-guide; aligns voice RAG with Chroma collection id */
+export type SelectedCourse = { name: string; guideSlug?: string };
 
 interface CourseSelectProps {
   onSelect: (course: SelectedCourse) => void;

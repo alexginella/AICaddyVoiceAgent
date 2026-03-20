@@ -29,7 +29,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       identity?: string;
       name?: string;
       userProfile?: Record<string, unknown>;
-      selectedCourse?: { name?: string };
+      selectedCourse?: { name?: string; guideSlug?: string };
     };
 
     const rn = roomName ?? `caddy-${Date.now()}`;

@@ -101,7 +101,9 @@ export function PreCallView({ onStartCall, liveKitUrl }: PreCallViewProps) {
         throw new Error('Course guide service did not return ready');
       }
       recordPreparedCourse(name);
-      setSelectedCourse({ name });
+      const guideSlug =
+        typeof data.guideSlug === 'string' && data.guideSlug.trim() ? data.guideSlug.trim() : undefined;
+      setSelectedCourse(guideSlug ? { name, guideSlug } : { name });
       setStep('ready');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to prepare course guide');

@@ -211,7 +211,7 @@ out body;>;out skel qt;`;
 
       const metadata = JSON.stringify({
         userProfile: userProfile ?? {},
-        selectedCourse: selectedCourse ?? { name: '' },
+        selectedCourse: selectedCourse ?? { name: '', guideSlug: '' },
       });
 
       const at = new AccessToken(apiKey, apiSecret, {

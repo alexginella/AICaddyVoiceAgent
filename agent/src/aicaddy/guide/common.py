@@ -43,6 +43,18 @@ def chroma_collection_name_for_course(course_name: str) -> str:
     return base[:63]
 
 
+def chroma_collection_name_for_pdf_stem(pdf_stem: str) -> str:
+    """
+    Chroma collection id from the on-disk PDF filename stem (no ``.pdf``), e.g.
+    ``pasatiempo-golf-club``. Matches ``chroma_collection_name_for_course(name)`` when
+    ``pdf_stem == filesystem_slug(name)``.
+    """
+    stem = (pdf_stem or "").strip().lower()
+    body = stem.replace("-", "_").strip("_") or "general"
+    base = f"course_{body}"
+    return base[:63]
+
+
 def course_pdf_path(course_name: str) -> Path:
     return courses_data_dir() / f"{filesystem_slug(course_name)}.pdf"
 
@@ -69,21 +81,42 @@ def documents_from_pdf_with_hole_meta(pdf_path: Path, course_name: str):
     return documents
 
 
-def chroma_collection_vector_count(course_name: str) -> int | None:
-    """
-    Return embedding row count if collection exists, else None.
-    """
+def chroma_collection_vector_count_for_collection(collection_name: str) -> int | None:
+    """Return embedding row count if collection exists, else None."""
     try:
         import chromadb
     except ImportError:
         return None
     client = chromadb.PersistentClient(path=str(vector_store_dir()))
-    coll_name = chroma_collection_name_for_course(course_name)
     try:
-        coll = client.get_collection(coll_name)
-        return coll.count()
+        return client.get_collection(collection_name).count()
     except Exception:
         return None
+
+
+def chroma_collection_vector_count(course_name: str) -> int | None:
+    """Count vectors for the collection derived from display ``course_name``."""
+    return chroma_collection_vector_count_for_collection(
+        chroma_collection_name_for_course(course_name)
+    )
+
+
+def chroma_collection_id_for_rag(
+    *,
+    display_course_name: str = "",
+    guide_pdf_stem: str = "",
+) -> str | None:
+    """
+    Resolve Chroma collection id for voice RAG. Prefer ``guide_pdf_stem`` from
+    ``ensure-guide`` (matches PDF on disk); fall back to slugging display name.
+    """
+    stem = (guide_pdf_stem or "").strip()
+    if stem:
+        return chroma_collection_name_for_pdf_stem(stem)
+    name = (display_course_name or "").strip()
+    if name:
+        return chroma_collection_name_for_course(name)
+    return None
 
 
 def guide_fully_ready(course_name: str) -> bool:
@@ -93,7 +126,8 @@ def guide_fully_ready(course_name: str) -> bool:
     pdf = course_pdf_path(course_name)
     if not pdf.is_file():
         return False
-    n = chroma_collection_vector_count(course_name)
+    coll = chroma_collection_name_for_pdf_stem(pdf.stem)
+    n = chroma_collection_vector_count_for_collection(coll)
     return n is not None and n > 0
 
 
@@ -104,6 +138,7 @@ def index_pdf_to_chroma(course_name: str, pdf_path: Path) -> None:
     import chromadb
     from llama_index.core import Settings, VectorStoreIndex
     from llama_index.embeddings.openai import OpenAIEmbedding
+    from llama_index.core.storage.storage_context import StorageContext
     from llama_index.vector_stores.chroma import ChromaVectorStore
 
     if not os.environ.get("OPENAI_API_KEY"):
@@ -114,7 +149,7 @@ def index_pdf_to_chroma(course_name: str, pdf_path: Path) -> None:
     Settings.chunk_size = 512
     Settings.chunk_overlap = 50
 
-    coll_name = chroma_collection_name_for_course(course_name)
+    coll_name = chroma_collection_name_for_pdf_stem(pdf_path.stem)
     client = chromadb.PersistentClient(path=str(persist_dir))
     with contextlib.suppress(Exception):
         client.delete_collection(coll_name)
@@ -122,11 +157,16 @@ def index_pdf_to_chroma(course_name: str, pdf_path: Path) -> None:
         coll_name, metadata={"hnsw:space": "cosine"}
     )
     vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
+    # from_documents only uses vector_store if it is on StorageContext; passing
+    # vector_store= as kwargs leaves the default in-memory store and writes nothing to Chroma.
+    storage_context = StorageContext.from_defaults(vector_store=vector_store)
 
     documents = documents_from_pdf_with_hole_meta(pdf_path, course_name)
     if not documents:
         raise RuntimeError(f"No text extracted from PDF: {pdf_path}")
 
     VectorStoreIndex.from_documents(
-        documents, vector_store=vector_store, show_progress=False
+        documents,
+        storage_context=storage_context,
+        show_progress=False,
     )
