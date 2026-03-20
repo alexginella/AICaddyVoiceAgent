@@ -1,10 +1,21 @@
 import { useState, useCallback } from 'react';
+import { BookMarked } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { loadCaddyProfile } from '@/lib/caddyProfile';
 import { cn } from '@/lib/utils';
+
+function formatPreparedDate(iso: string) {
+  try {
+    return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(iso));
+  } catch {
+    return iso;
+  }
+}
 
 export type SelectedCourse = { name: string };
 
@@ -83,6 +94,8 @@ export function CourseSelect({
     onSelect({ name: course.name });
   };
 
+  const preparedCourses = loadCaddyProfile().preparedCourses ?? [];
+
   const handleCustomSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const name = customName.trim();
@@ -99,6 +112,39 @@ export function CourseSelect({
       <CardDescription className="text-base leading-relaxed">
         Where are you playing? We&apos;ll prepare a yardage book for Chip before your call.
       </CardDescription>
+
+      {preparedCourses.length > 0 && (
+        <div className="space-y-2 rounded-lg border border-border/60 bg-muted/20 p-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+            <BookMarked className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+            Yardage books on this device
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Tap a course to reuse a book you&apos;ve already prepared — no need to search again.
+          </p>
+          <div className="transcript-scroll-minimal flex max-h-[min(40vh,280px)] flex-col gap-2 overflow-y-auto overflow-x-hidden pr-1">
+            {preparedCourses.map((c) => (
+              <Button
+                key={`${c.name}-${c.preparedAt}`}
+                type="button"
+                variant="secondary"
+                disabled={isDisabled}
+                onClick={() => handleSelectCourse({ name: c.name })}
+                className="h-auto min-h-12 w-full justify-between gap-3 whitespace-normal py-3 text-left font-normal"
+              >
+                <span className="min-w-0 break-words">{c.name}</span>
+                <Badge variant="outline" className="shrink-0 font-normal text-muted-foreground">
+                  {formatPreparedDate(c.preparedAt)}
+                </Badge>
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {preparedCourses.length > 0 && (
+        <p className="text-sm font-medium text-muted-foreground">Find another course</p>
+      )}
 
       <div className="flex flex-col gap-2">
         <Input

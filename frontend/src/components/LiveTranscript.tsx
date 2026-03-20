@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'react';
+import { useLayoutEffect, useMemo, useRef } from 'react';
 import { useTranscriptions } from '@livekit/components-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -8,17 +8,42 @@ type TranscriptionItem = {
   participantInfo?: { identity?: string };
 };
 
+type MergedLine = { isAgent: boolean; text: string };
+
+function isAgentSpeaker(t: TranscriptionItem): boolean {
+  const id = t.participantInfo?.identity?.toLowerCase() ?? '';
+  return id.includes('agent') || id.includes('caddy');
+}
+
+/** ASR often splits one utterance into many segments after short pauses; merge same speaker. */
+function mergeConsecutiveBySpeaker(items: TranscriptionItem[]): MergedLine[] {
+  const out: MergedLine[] = [];
+  for (const t of items) {
+    const text = (t.text ?? '').trim();
+    if (!text) continue;
+    const agent = isAgentSpeaker(t);
+    const prev = out[out.length - 1];
+    if (prev && prev.isAgent === agent) {
+      prev.text = `${prev.text} ${text}`.trim();
+    } else {
+      out.push({ isAgent: agent, text });
+    }
+  }
+  return out;
+}
+
 /** Pixels from bottom to still count as "following" the live edge */
 const PIN_THRESHOLD_PX = 72;
 
 export function LiveTranscript() {
   const transcriptions = useTranscriptions();
   const items: TranscriptionItem[] = Array.isArray(transcriptions) ? transcriptions : [];
+  const lines = useMemo(() => mergeConsecutiveBySpeaker(items), [items]);
 
   const viewportRef = useRef<HTMLDivElement>(null);
   const pinToBottomRef = useRef(true);
 
-  const contentFingerprint = items.map((t) => t.text ?? '').join('\u0001');
+  const contentFingerprint = lines.map((t) => t.text).join('\u0001');
 
   const updatePinnedFromScroll = () => {
     const el = viewportRef.current;
@@ -45,29 +70,24 @@ export function LiveTranscript() {
           onScroll={updatePinnedFromScroll}
           className="transcript-scroll-minimal h-full min-h-[160px] overflow-y-auto overflow-x-hidden px-4"
         >
-          {items.length === 0 ? (
+          {lines.length === 0 ? (
             <p className="text-sm text-muted-foreground">Start speaking — transcript will appear here.</p>
           ) : (
             <div className="flex flex-col gap-2 pb-2">
-              {items.map((t, i) => {
-                const isAgent =
-                  t.participantInfo?.identity?.toLowerCase().includes('agent') ||
-                  t.participantInfo?.identity?.toLowerCase().includes('caddy');
-                return (
-                  <div
-                    key={i}
-                    className={cn(
-                      'rounded-md px-3 py-2 text-base leading-relaxed',
-                      isAgent ? 'bg-primary/15' : 'bg-transparent'
-                    )}
-                  >
-                    <span className="mr-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      {isAgent ? 'Chip' : 'You'}
-                    </span>
-                    {t.text ?? ''}
-                  </div>
-                );
-              })}
+              {lines.map((t, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    'rounded-md px-3 py-2 text-base leading-relaxed',
+                    t.isAgent ? 'bg-primary/15' : 'bg-transparent'
+                  )}
+                >
+                  <span className="mr-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {t.isAgent ? 'Chip' : 'You'}
+                  </span>
+                  {t.text}
+                </div>
+              ))}
             </div>
           )}
         </div>

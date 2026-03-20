@@ -14,6 +14,7 @@ import {
   replaceClubYardageEntry,
   type PreparedCourse,
 } from '@/lib/caddyProfile';
+import { cn } from '@/lib/utils';
 import { labelForScoringGoal, type UserProfile } from '@/types/userProfile';
 
 function formatDate(iso: string) {
@@ -365,19 +366,25 @@ export function ProfilePanel({
           {preparedCourses.length === 0 ? (
             <p className="text-sm text-muted-foreground">None yet — start a round to generate one.</p>
           ) : (
-            <ul className="flex flex-col gap-2">
-              {preparedCourses.map((c) => (
-                <li
-                  key={`${c.name}-${c.preparedAt}`}
-                  className="flex flex-col gap-0.5 rounded-lg border border-border/60 bg-background/40 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <Badge variant="secondary" className="w-fit font-normal">
-                    {c.name}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">Prepared {formatDate(c.preparedAt)}</span>
-                </li>
-              ))}
-            </ul>
+            <div
+              className={cn(
+                'transcript-scroll-minimal max-h-[min(40vh,280px)] overflow-y-auto overflow-x-hidden pr-1'
+              )}
+            >
+              <ul className="flex flex-col gap-2 pb-0.5">
+                {preparedCourses.map((c) => (
+                  <li
+                    key={`${c.name}-${c.preparedAt}`}
+                    className="flex flex-col gap-0.5 rounded-lg border border-border/60 bg-background/40 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <Badge variant="secondary" className="w-fit font-normal">
+                      {c.name}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">Prepared {formatDate(c.preparedAt)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </CardContent>
       </Card>

@@ -17,6 +17,7 @@ import type { SelectedCourse } from './CourseSelect';
 import { IntakeForm } from './IntakeForm';
 import { CourseSelect } from './CourseSelect';
 import { HomeDashboard } from './HomeDashboard';
+import { GuidePrepLoading } from './GuidePrepLoading';
 import { ProfilePanel } from './ProfilePanel';
 
 type Step = 'home' | 'intake' | 'profile' | 'course' | 'ready';
@@ -36,6 +37,8 @@ export function PreCallView({ onStartCall, liveKitUrl }: PreCallViewProps) {
     hasCompletedOnboarding() ? userProfileFromStorage() : null
   );
   const [selectedCourse, setSelectedCourse] = useState<SelectedCourse | null>(null);
+  /** Course name while POST /api/ensure-guide is in flight (for loading UI). */
+  const [preparingCourseName, setPreparingCourseName] = useState<string | null>(null);
 
   const goHome = () => {
     setError(null);
@@ -75,6 +78,7 @@ export function PreCallView({ onStartCall, liveKitUrl }: PreCallViewProps) {
       return;
     }
     setError(null);
+    setPreparingCourseName(name);
     setLoading(true);
     try {
       const res = await fetch('/api/ensure-guide', {
@@ -103,6 +107,7 @@ export function PreCallView({ onStartCall, liveKitUrl }: PreCallViewProps) {
       setError(e instanceof Error ? e.message : 'Failed to prepare course guide');
     } finally {
       setLoading(false);
+      setPreparingCourseName(null);
     }
   };
 
@@ -162,7 +167,9 @@ export function PreCallView({ onStartCall, liveKitUrl }: PreCallViewProps) {
       : step === 'profile'
         ? 'Profile'
         : step === 'course'
-          ? 'New round'
+          ? loading
+            ? 'Preparing book'
+            : 'New round'
           : step === 'ready'
             ? 'Ready'
             : null;
@@ -269,11 +276,14 @@ export function PreCallView({ onStartCall, liveKitUrl }: PreCallViewProps) {
             />
           )}
 
-          {step === 'course' && (
+          {step === 'course' && loading && preparingCourseName !== null && (
+            <GuidePrepLoading courseName={preparingCourseName} active={loading} />
+          )}
+          {step === 'course' && !loading && (
             <CourseSelect
               onSelect={handleCourseSelect}
               onBack={handleCourseBack}
-              loading={loading}
+              loading={false}
               disabled={configMissing}
             />
           )}

@@ -8,15 +8,11 @@ from livekit.agents import Agent, ChatContext, ChatMessage, RunContext, function
 
 from aicaddy.voice.tools import get_nearby_golf_courses
 
-CADDY_INSTRUCTIONS = """You are Chip, a seasoned virtual golf caddy who's ready to help golfers of all levels out on the course.
-You speak in a warm, confident, and friendly tone. You reference course knowledge, wind, elevation, and the mental game.
-
-Guidelines:
-- Keep responses concise and voice-friendly: no emojis, asterisks, or complex formatting.
-- If you know their scoring goal, tune risk/reward and strategy (e.g. break-100 vs break-80) without being preachy.
-- Use the golfer's club yardages when recommending clubs. If you don't know their distances, ask!
-- When you have course yardage, layout, and hole info from the knowledge base, use it precisely.
-- You're knowledgeable and willing to collaborate with the golfer to give the best advice for their skill level in any situation.
+CADDY_INSTRUCTIONS = """You are a professional golf caddy. Your goal is to help the golfer reach their scoring target using your course knowldege and strategic expertise.
+Work collaboratively with the player through each hole to achieve their goal. The best caddies have a deep unserstanding of the course
+and are able to tailor their advice to the golfer's skills and preferences in order to help them reach their goal, even if the player finds themselves in a tricky spot. Use your course understanding to
+break down each hole into manageable segments dependant on the player's abilities, the hole's layout, and the scoring goal. Make sure to keep score as well so you can adapt your plan based on the player's performance.
+When communicating with the player, be concise and focused, dont bring up unnecessary details or information. Your job is to guide the player, not lecture them.
 """
 
 
@@ -86,7 +82,10 @@ class CaddyAgent(Agent):
             if rag_content and rag_content.strip():
                 turn_ctx.add_message(
                     role="assistant",
-                    content=f"Relevant info from the yardage book and knowledge base:\n{rag_content}",
+                    content=(
+                        "Relevant yardage-book material—use it naturally in your answer; don't read it word for word:\n"
+                        f"{rag_content}"
+                    ),
                 )
         except Exception:
             pass
@@ -117,7 +116,7 @@ class CaddyAgent(Agent):
     async def update_my_yardages_tool(
         self, context: RunContext, club: str, distance: int
     ) -> str:
-        """Record the golfer's club distance when they tell you. E.g. 'my 7-iron goes 155' -> club='7-iron', distance=155. Confirm you've noted it."""
+        """Record the golfer's club distance when they tell you. E.g. 'my 7-iron goes 155' -> club='7-iron', distance=155. Confirm briefly."""
         self._club_yardages[club.lower().replace(" ", "")] = distance
         await self._publish_profile_update()
-        return f"Got it. I've noted your {club} at {distance} yards."
+        return f"Got it—I've got your {club} at {distance} yards."

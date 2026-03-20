@@ -107,9 +107,12 @@ async def my_agent(ctx: JobContext):
 
     await ctx.connect()
 
-    greet = "Greet the user warmly as Chip the caddy. Introduce yourself briefly and offer to help with their round—course knowledge, club selection, or strategy."
+    greet = (
+        "You are Chip. Greet them as their caddy for this round. "
+        "Introduce yourself and offer to help reaching their scoring goal using your course knowledge and strategic expertise."
+    )
     if course_name:
-        greet += f" They're playing at {course_name} today."
+        greet += f" They're playing {course_name} today—welcome them to that course naturally."
     await session.generate_reply(instructions=greet)
 
 
