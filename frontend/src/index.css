@@ -155,3 +155,22 @@ body {
     @apply font-sans;
   }
 }
+
+/* Live transcript: slim scrollbar, always available */
+@layer utilities {
+  .transcript-scroll-minimal {
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--muted-foreground) 40%, transparent) transparent;
+  }
+  .transcript-scroll-minimal::-webkit-scrollbar {
+    width: 7px;
+  }
+  .transcript-scroll-minimal::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--muted-foreground) 45%, transparent);
+    border-radius: 9999px;
+  }
+  .transcript-scroll-minimal::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}

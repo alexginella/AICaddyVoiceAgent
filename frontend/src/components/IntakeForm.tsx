@@ -21,6 +21,8 @@ interface IntakeFormProps {
   onSkip: () => void;
   loading: boolean;
   disabled?: boolean;
+  /** When false, hide skip (e.g. profile edit). Default true. */
+  showSkip?: boolean;
 }
 
 export function IntakeForm({
@@ -28,6 +30,7 @@ export function IntakeForm({
   onSkip,
   loading,
   disabled,
+  showSkip = true,
 }: IntakeFormProps) {
   const [profile, setProfile] = useState<UserProfile>(() => {
     const stored = loadCaddyProfile();
@@ -207,18 +210,20 @@ export function IntakeForm({
           className={cn('min-h-12 flex-1 md:min-h-10')}
           disabled={isLocked}
         >
-          {loading ? 'Next…' : 'Next'}
+          {loading ? 'Saving…' : showSkip ? 'Continue' : 'Save'}
         </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          size="lg"
-          className="min-h-12 md:min-h-10"
-          onClick={onSkip}
-          disabled={isLocked}
-        >
-          Skip
-        </Button>
+        {showSkip && (
+          <Button
+            type="button"
+            variant="secondary"
+            size="lg"
+            className="min-h-12 md:min-h-10"
+            onClick={onSkip}
+            disabled={isLocked}
+          >
+            Skip
+          </Button>
+        )}
       </div>
     </form>
   );

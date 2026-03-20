@@ -8,8 +8,19 @@ export type PreparedCourse = {
   preparedAt: string;
 };
 
+/** A completed voice session with Chip (local history only). */
+export type VoiceSession = {
+  id: string;
+  courseName: string;
+  startedAt: string;
+  endedAt: string;
+};
+
+const MAX_VOICE_SESSIONS = 50;
+
 export type CaddyStoredProfile = Partial<UserProfile> & {
   preparedCourses?: PreparedCourse[];
+  voiceSessions?: VoiceSession[];
   /** Set when user completes or skips intake — skips re-prompt on return */
   onboardingComplete?: boolean;
 };
@@ -24,6 +35,7 @@ export function loadCaddyProfile(): CaddyStoredProfile {
     return {
       ...data,
       preparedCourses: Array.isArray(data.preparedCourses) ? data.preparedCourses : [],
+      voiceSessions: Array.isArray(data.voiceSessions) ? data.voiceSessions : [],
     };
   } catch {
     return {};
@@ -48,6 +60,7 @@ export function saveCaddyProfile(updates: Partial<CaddyStoredProfile>) {
     ...updates,
     clubYardages,
     preparedCourses: updates.preparedCourses ?? prev.preparedCourses,
+    voiceSessions: updates.voiceSessions ?? prev.voiceSessions,
   };
   writeProfile(next);
 }
@@ -111,6 +124,28 @@ export function recordPreparedCourse(courseName: string) {
     ...others,
   ];
   saveCaddyProfile({ preparedCourses: nextList });
+}
+
+export function recordVoiceSession(courseName: string, startedAt: string, endedAt: string) {
+  const name = courseName.trim();
+  if (!name) return;
+  const prev = loadCaddyProfile();
+  const id =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  const entry: VoiceSession = {
+    id,
+    courseName: name,
+    startedAt,
+    endedAt,
+  };
+  const list = [entry, ...(prev.voiceSessions ?? [])].slice(0, MAX_VOICE_SESSIONS);
+  saveCaddyProfile({ voiceSessions: list });
+}
+
+export function loadVoiceSessions(): VoiceSession[] {
+  return loadCaddyProfile().voiceSessions ?? [];
 }
 
 export function hasCompletedOnboarding(): boolean {

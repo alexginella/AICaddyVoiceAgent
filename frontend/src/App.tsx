@@ -7,15 +7,19 @@ import {
   loadCaddyProfile,
   mergeClubYardages,
   persistAfterCallEnd,
+  recordVoiceSession,
   userProfileFromStorage,
 } from './lib/caddyProfile';
 import type { UserProfile } from './types/userProfile';
 import type { SelectedCourse } from './components/CourseSelect';
 
+type ActiveRound = { courseName: string; startedAt: string };
+
 function App() {
   const [token, setToken] = useState<string | null>(null);
   const [roomName, setRoomName] = useState<string | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [activeRound, setActiveRound] = useState<ActiveRound | null>(null);
 
   const handleStartCall = async (profile: UserProfile, course: SelectedCourse) => {
     setUserProfile(profile);
@@ -41,13 +45,21 @@ function App() {
 
     const data = await res.json();
     setToken(data.accessToken);
+    setActiveRound({
+      courseName: course.name,
+      startedAt: new Date().toISOString(),
+    });
   };
 
   const handleEndCall = () => {
+    if (activeRound) {
+      recordVoiceSession(activeRound.courseName, activeRound.startedAt, new Date().toISOString());
+    }
     persistAfterCallEnd(userProfile);
     setToken(null);
     setRoomName(null);
     setUserProfile(null);
+    setActiveRound(null);
   };
 
   if (!token || !roomName || !import.meta.env.VITE_LIVEKIT_URL) {

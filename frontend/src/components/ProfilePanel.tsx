@@ -27,7 +27,6 @@ function formatDate(iso: string) {
   }
 }
 
-/** Reverse partial formatting for edit field (hyphens → spaces; raw keys stay as-is). */
 function keyToEditableLabel(key: string): string {
   return key.replace(/-/g, ' ');
 }
@@ -36,23 +35,21 @@ function formatClubDisplay(key: string): string {
   return key.replace(/-/g, ' ');
 }
 
-interface UserProfileHomeProps {
+interface ProfilePanelProps {
   profile: UserProfile;
   preparedCourses: PreparedCourse[];
-  onNewRound: () => void;
-  onEditProfile: () => void;
+  onEditDetails: () => void;
   onClearProfile: () => void;
   disabled?: boolean;
 }
 
-export function UserProfileHome({
+export function ProfilePanel({
   profile,
   preparedCourses,
-  onNewRound,
-  onEditProfile,
+  onEditDetails,
   onClearProfile,
   disabled,
-}: UserProfileHomeProps) {
+}: ProfilePanelProps) {
   const yardagesFromProp = profile.clubYardages ?? {};
   const yardagesKey = JSON.stringify(yardagesFromProp);
 
@@ -160,9 +157,13 @@ export function UserProfileHome({
   return (
     <div className="flex w-full flex-col gap-4">
       <Card className="w-full border-border/80 bg-card/50 text-left shadow-none">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg">Your profile</CardTitle>
-          <CardDescription>Used for tee tips and club advice on your next call.</CardDescription>
+        <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 pb-2">
+          <div className="min-w-0 flex-1 space-y-1">
+            <CardTitle className="text-lg">Your details</CardTitle>
+            <CardDescription>
+              Handicap, goals, and basics — used for tee tips and club advice.
+            </CardDescription>
+          </div>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2">
@@ -177,6 +178,15 @@ export function UserProfileHome({
             <dt className="text-muted-foreground">Scoring goal</dt>
             <dd>{labelForScoringGoal(profile.scoringGoal, profile.scoringGoalNote)}</dd>
           </dl>
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-full"
+            onClick={onEditDetails}
+            disabled={disabled}
+          >
+            Edit profile details
+          </Button>
         </CardContent>
       </Card>
 
@@ -262,10 +272,7 @@ export function UserProfileHome({
               {yardageEntries.map(([club, yds]) => {
                 const isEditing = editingRowKey === club;
                 return (
-                  <li
-                    key={club}
-                    className="border-b border-border/50 py-2 last:border-0"
-                  >
+                  <li key={club} className="border-b border-border/50 py-2 last:border-0">
                     {isEditing ? (
                       <div className="flex flex-col gap-2">
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
@@ -291,16 +298,9 @@ export function UserProfileHome({
                             />
                           </div>
                         </div>
-                        {editRowError && (
-                          <p className="text-xs text-destructive">{editRowError}</p>
-                        )}
+                        {editRowError && <p className="text-xs text-destructive">{editRowError}</p>}
                         <div className="flex flex-wrap gap-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            disabled={disabled}
-                            onClick={saveRowEdit}
-                          >
+                          <Button type="button" size="sm" disabled={disabled} onClick={saveRowEdit}>
                             Save
                           </Button>
                           <Button
@@ -317,12 +317,8 @@ export function UserProfileHome({
                     ) : (
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0 flex-1">
-                          <span className="font-medium capitalize">
-                            {formatClubDisplay(club)}
-                          </span>
-                          <span className="ml-2 tabular-nums text-muted-foreground">
-                            {yds} yds
-                          </span>
+                          <span className="font-medium capitalize">{formatClubDisplay(club)}</span>
+                          <span className="ml-2 tabular-nums text-muted-foreground">{yds} yds</span>
                         </div>
                         {yardageEditorOpen && (
                           <div className="flex shrink-0 items-center gap-1">
@@ -388,37 +384,16 @@ export function UserProfileHome({
 
       <Separator />
 
-      <div className="flex flex-col gap-2">
-        <Button
-          type="button"
-          size="lg"
-          className="min-h-12 w-full text-base font-semibold"
-          onClick={onNewRound}
-          disabled={disabled}
-        >
-          Play a round
-        </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          size="lg"
-          className="min-h-12 w-full"
-          onClick={onEditProfile}
-          disabled={disabled}
-        >
-          Edit profile
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="lg"
-          className="min-h-12 w-full text-destructive hover:text-destructive"
-          onClick={onClearProfile}
-          disabled={disabled}
-        >
-          Clear saved profile
-        </Button>
-      </div>
+      <Button
+        type="button"
+        variant="outline"
+        size="lg"
+        className="min-h-12 w-full text-destructive hover:text-destructive"
+        onClick={onClearProfile}
+        disabled={disabled}
+      >
+        Clear saved profile
+      </Button>
     </div>
   );
 }
