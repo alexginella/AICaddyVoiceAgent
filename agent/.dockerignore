@@ -1,0 +1,14 @@
+# Keep Fly/Depot build context small (avoid .venv, local Chroma, PDFs).
+.venv
+__pycache__
+.pytest_cache
+.ruff_cache
+*.pyc
+*.pyo
+.git
+.gitignore
+.env
+.env.*
+*.egg-info
+data/
+vector_store/

@@ -1,0 +1,30 @@
+# Course Guide Service only — FastAPI + PDF/Chroma on a persistent volume.
+# Build from the agent/ directory: docker build -f Dockerfile.guide -t aicaddy-guide .
+# Runs as root so platform-mounted volumes (e.g. Fly.io /data) stay writable; do not expose
+# directly to the public internet without TLS and auth at the edge (Vercel proxy, Fly proxy, etc.).
+# syntax=docker/dockerfile:1
+ARG PYTHON_VERSION=3.13
+FROM ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-bookworm-slim AS base
+
+ENV PYTHONUNBUFFERED=1
+
+FROM base AS build
+RUN apt-get update && apt-get install -y gcc g++ python3-dev && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY pyproject.toml ./
+RUN mkdir -p src data
+RUN uv sync
+
+COPY . .
+RUN uv sync
+
+FROM base
+WORKDIR /app
+COPY --from=build /app /app
+
+ENV AICADDY_PERSIST_ROOT=/data
+EXPOSE 8765
+
+# Fly.io and similar set PORT; default 8765 for local/docker-compose.
+CMD ["sh", "-c", "uv run uvicorn aicaddy.guide.service_app:app --app-dir src --host 0.0.0.0 --port ${PORT:-8765}"]

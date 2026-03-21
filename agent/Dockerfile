@@ -10,10 +10,10 @@ RUN apt-get update && apt-get install -y gcc g++ python3-dev && rm -rf /var/lib/
 WORKDIR /app
 COPY pyproject.toml ./
 RUN mkdir -p src data
-RUN uv sync --no-locked
+RUN uv sync
 
 COPY . .
-RUN uv sync --no-locked
+RUN uv sync
 RUN uv run src/agent.py download-files 2>/dev/null || true
 
 FROM base

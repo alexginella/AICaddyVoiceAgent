@@ -1,0 +1,33 @@
+# Combined Fly.io image: FastAPI course guide (:8765) + LiveKit voice worker.
+# Both use AICADDY_PERSIST_ROOT=/data (Chroma + PDFs on the mounted volume).
+# Runs as root so Fly [[mounts]] at /data stays writable.
+# Build from agent/: docker build -f Dockerfile.fly -t aicaddy-fly .
+# syntax=docker/dockerfile:1
+ARG PYTHON_VERSION=3.13
+FROM ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-bookworm-slim AS base
+
+ENV PYTHONUNBUFFERED=1
+
+FROM base AS build
+RUN apt-get update && apt-get install -y gcc g++ python3-dev && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY pyproject.toml ./
+RUN mkdir -p src data
+RUN uv sync
+
+COPY . .
+RUN uv sync
+RUN uv run src/agent.py download-files 2>/dev/null || true
+
+FROM base
+WORKDIR /app
+COPY --from=build /app /app
+COPY fly-entrypoint.sh /app/fly-entrypoint.sh
+# Strip Windows CRLF if present (avoids: /usr/bin/env: 'bash\r': No such file or directory)
+RUN sed -i 's/\r$//' /app/fly-entrypoint.sh && chmod +x /app/fly-entrypoint.sh
+
+ENV AICADDY_PERSIST_ROOT=/data
+EXPOSE 8765
+
+CMD ["/app/fly-entrypoint.sh"]

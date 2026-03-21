@@ -1,0 +1,21 @@
+# Local / self-hosted guide service with a named Docker volume (mirrors prod layout).
+# From repo root:  docker compose -f agent/docker-compose.guide.yml --env-file .env up --build
+# Or from agent/:   docker compose -f docker-compose.guide.yml --env-file ../.env up --build
+
+services:
+  guide:
+    build:
+      context: .
+      dockerfile: Dockerfile.guide
+    ports:
+      - "8765:8765"
+    environment:
+      AICADDY_PERSIST_ROOT: /data
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?set OPENAI_API_KEY in .env}
+      GOLF_COURSE_API_KEY: ${GOLF_COURSE_API_KEY:?set GOLF_COURSE_API_KEY in .env}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - guide_persist:/data
+
+volumes:
+  guide_persist:

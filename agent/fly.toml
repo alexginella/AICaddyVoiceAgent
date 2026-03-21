@@ -1,0 +1,43 @@
+# Fly.io — One Machine: course guide HTTP + LiveKit worker, shared volume at /data.
+#
+# fly-entrypoint.sh: agent in background, then exec uvicorn (PID 1) on PORT (8765).
+# Fly [http_service] only proxies to the guide port; the worker has no public HTTP.
+# Shell script must stay LF-only (see repo .gitattributes); CRLF breaks shebang on Linux.
+#
+# If you have an extra unused Fly volume (e.g. course_data), remove it in the dashboard or
+# `fly volumes destroy <id>` so you are not billed for orphan disks; this app uses guide_data only.
+# Using [processes] would create separate Machines; one wrapper keeps a single VM + one volume.
+#
+# First-time setup (from agent/):
+#   fly apps create aicaddy-backend
+#   fly volumes create guide_data --region sjc --size 3
+#   fly secrets set OPENAI_API_KEY=... GOLF_COURSE_API_KEY=... LIVEKIT_* ...
+#   fly deploy
+#
+# [[mounts]].source must match the volume name from `fly volumes create` (here: guide_data).
+# Set Vercel GUIDE_SERVICE_URL to https://aicaddy-backend.fly.dev (or your custom domain).
+
+app = "aicaddy-backend"
+primary_region = "sjc"
+
+[build]
+  dockerfile = "Dockerfile.fly"
+
+[env]
+  AICADDY_PERSIST_ROOT = "/data"
+
+[http_service]
+  internal_port = 8765
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[mounts]]
+  source = "guide_data"
+  destination = "/data"
+
+[[vm]]
+  memory = "2gb"
+  cpu_kind = "shared"
+  cpus = 1

@@ -109,6 +109,31 @@ uv run src/agent.py dev
 
 **Deployment note:** The agent and Course Guide Service must share the same `agent/data/courses/` and `agent/vector_store/` storage (e.g. shared volume). If the guide service ran only on your laptop and the agent runs in LiveKit Cloud, indexes will not match.
 
+#### Deploy Course Guide Service (persistent disk)
+
+The guide is a **separate** FastAPI app. In production it needs **durable storage** for PDFs and Chroma (`vector_store` SQLite). Set **`OPENAI_API_KEY`** and **`GOLF_COURSE_API_KEY`** on the host (Fly secrets, container env, etc.); do not put them on Vercel.
+
+**Layout on disk:** Either use the default paths under `agent/` (local dev) or point a single volume at **`AICADDY_PERSIST_ROOT`** (creates `courses/` and `vector_store/` inside it). Per-path overrides: `AICADDY_COURSES_DIR`, `AICADDY_VECTOR_STORE_DIR` (see [`.env.example`](.env.example)).
+
+**Docker (named volume):** from repo root, with root `.env` containing the two API keys:
+
+```bash
+docker compose -f agent/docker-compose.guide.yml --env-file .env up --build
+```
+
+**Fly.io:** see [`agent/fly.toml`](agent/fly.toml) header comments. Create the app, create a volume named `guide_data` (must match the mount `source`), set secrets (including LiveKit keys for the worker), then:
+
+```bash
+cd agent
+fly deploy
+```
+
+[`agent/fly.toml`](agent/fly.toml) deploys **guide + LiveKit worker** on **one Machine** via [`agent/Dockerfile.fly`](agent/Dockerfile.fly) and [`agent/fly-entrypoint.sh`](agent/fly-entrypoint.sh); both use `AICADDY_PERSIST_ROOT=/data` on the shared volume. Only the guide port (8765) is exposed through Fly’s HTTP proxy.
+
+**Guide only:** [`agent/fly.guide.toml`](agent/fly.guide.toml) + [`agent/Dockerfile.guide`](agent/Dockerfile.guide): `fly deploy --config fly.guide.toml`.
+
+Rename `app` in the chosen `fly*.toml` to your Fly app name before the first deploy. Point Vercel **`GUIDE_SERVICE_URL`** at the public HTTPS origin (e.g. `https://<app>.fly.dev`).
+
 ### 5. Frontend
 
 ```bash
@@ -182,7 +207,13 @@ Or use AWS ECS with the included Dockerfile.
 ```
 AICaddyVoiceAgent/
 ├── package.json         # npm run dev — starts guide API, api-server, Vite, agent (concurrently)
-├── agent/               # Python LiveKit agent
+├── agent/               # Python LiveKit agent + Course Guide Service
+│   ├── Dockerfile.guide # Production image for FastAPI guide only
+│   ├── Dockerfile.fly   # Fly: guide + LiveKit worker (shared /data)
+│   ├── fly-entrypoint.sh # Starts uvicorn + agent.py on one Machine
+│   ├── fly.toml         # Fly.io default: combined app + volume
+│   ├── fly.guide.toml   # Fly.io guide-only template
+│   ├── docker-compose.guide.yml  # Local/VM guide with persistent volume
 │   ├── src/
 │   │   ├── agent.py              # LiveKit CLI shim → aicaddy.voice.main
 │   │   └── aicaddy/

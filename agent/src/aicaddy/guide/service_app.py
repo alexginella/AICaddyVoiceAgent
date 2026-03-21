@@ -15,10 +15,12 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
 
-from aicaddy.paths import repo_root
+from aicaddy.paths import agent_root, repo_root
 
-_env_path = repo_root() / ".env"
-load_dotenv(_env_path)
+for _env_candidate in (repo_root() / ".env", agent_root() / ".env"):
+    if _env_candidate.is_file():
+        load_dotenv(_env_candidate)
+        break
 
 _root = logging.getLogger()
 if not _root.handlers:

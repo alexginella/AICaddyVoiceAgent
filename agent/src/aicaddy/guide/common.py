@@ -13,14 +13,29 @@ from pathlib import Path
 from aicaddy.paths import agent_root as _agent_root
 
 
+def _optional_path_env(var: str) -> Path | None:
+    raw = (os.environ.get(var) or "").strip()
+    return Path(raw) if raw else None
+
+
 def courses_data_dir() -> Path:
-    p = _agent_root() / "data" / "courses"
+    p = _optional_path_env("AICADDY_COURSES_DIR")
+    if p is None:
+        persist = _optional_path_env("AICADDY_PERSIST_ROOT")
+        p = (persist / "courses") if persist is not None else _agent_root() / "data" / "courses"
     p.mkdir(parents=True, exist_ok=True)
     return p
 
 
 def vector_store_dir() -> Path:
-    p = _agent_root() / "vector_store"
+    p = _optional_path_env("AICADDY_VECTOR_STORE_DIR")
+    if p is None:
+        persist = _optional_path_env("AICADDY_PERSIST_ROOT")
+        p = (
+            (persist / "vector_store")
+            if persist is not None
+            else _agent_root() / "vector_store"
+        )
     p.mkdir(parents=True, exist_ok=True)
     return p
 

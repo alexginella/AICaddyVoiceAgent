@@ -1,0 +1,36 @@
+# Fly.io — Guide-only image (Dockerfile.guide). For guide + LiveKit on one Machine, use fly.toml + Dockerfile.fly.
+# Same app as fly.toml; use when you prefer an explicit config path:
+#   fly deploy --config fly.guide.toml
+#
+# First-time setup (from agent/):
+#   fly apps create aicaddy-backend
+#   fly volumes create guide_data --region sjc --size 3
+#   fly secrets set OPENAI_API_KEY=... GOLF_COURSE_API_KEY=...
+#
+# [[mounts]].source must match the volume name from `fly volumes create` (here: guide_data).
+# Set Vercel GUIDE_SERVICE_URL to https://aicaddy-backend.fly.dev (or your custom domain).
+
+app = "aicaddy-backend"
+primary_region = "sjc"
+
+[build]
+  dockerfile = "Dockerfile.guide"
+
+[env]
+  AICADDY_PERSIST_ROOT = "/data"
+
+[http_service]
+  internal_port = 8765
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[mounts]]
+  source = "guide_data"
+  destination = "/data"
+
+[[vm]]
+  memory = "1gb"
+  cpu_kind = "shared"
+  cpus = 1
