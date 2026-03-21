@@ -12,16 +12,26 @@ FROM base AS build
 RUN apt-get update && apt-get install -y gcc g++ python3-dev && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+# HF + transformers cache must live under /app so COPY --from=build /app preserves it in the final image.
+ENV HF_HOME=/app/.cache/huggingface
 COPY pyproject.toml ./
 RUN mkdir -p src data
 RUN uv sync
 
 COPY . .
 RUN uv sync
-RUN uv run src/agent.py download-files 2>/dev/null || true
+RUN uv run src/agent.py download-files
+RUN uv run python -c "\
+from huggingface_hub import hf_hub_download; \
+from livekit.plugins.turn_detector.models import HG_MODEL, MODEL_REVISIONS, ONNX_FILENAME; \
+rev = MODEL_REVISIONS['multilingual']; \
+hf_hub_download(repo_id=HG_MODEL, filename='languages.json', revision=rev, local_files_only=True); \
+hf_hub_download(repo_id=HG_MODEL, filename=ONNX_FILENAME, subfolder='onnx', revision=rev, local_files_only=True); \
+print('turn-detector multilingual assets OK')"
 
 FROM base
 WORKDIR /app
+ENV HF_HOME=/app/.cache/huggingface
 COPY --from=build /app /app
 COPY fly-entrypoint.sh /app/fly-entrypoint.sh
 # Strip Windows CRLF if present (avoids: /usr/bin/env: 'bash\r': No such file or directory)
