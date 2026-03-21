@@ -36,7 +36,7 @@ Intake Form → Course Select → Ensure yardage book (Guide Service) → Start 
 - **LlamaIndex**: RAG pipeline, PDF loading, Chroma vector store.
 - **React + Vite**: Frontend with `@livekit/components-react`, mobile-first layout.
 - **Overpass / Nominatim**: Golf course search (free, no API key).
-- **Vercel**: Frontend + `/api/token`, `/api/nearby-courses`, and `/api/ensure-guide` (guide proxy) deployment. LiveKit Cloud for media and agent hosting.
+- **Vercel + Fly.io**: The hosted app uses Vercel for the frontend and API routes, Fly.io for the guide + worker, and LiveKit Cloud for media and dispatch (see [Production hosting](#production-hosting)).
 
 ---
 
@@ -45,144 +45,86 @@ Intake Form → Course Select → Ensure yardage book (Guide Service) → Start 
 ### Prerequisites
 
 - **Node.js** 18+
-- **Python** 3.10+ (3.9+ may work; LiveKit agents recommend 3.10)
-- **uv** (recommended for Python) or pip
-- LiveKit Cloud account
-- OpenAI API key
+- **Python** 3.10+ and **[uv](https://github.com/astral-sh/uv)** (recommended) or pip
+- Accounts/keys: LiveKit Cloud, OpenAI, and [Golf Course API](https://golfcourseapi.com) (required for `POST /ensure-guide` to build a yardage book)
 
-### 1. Clone and Configure
+### Environment
 
-```bash
-git clone <repo-url>
-cd AICaddyVoiceAgent
-cp .env.example .env
-# Edit .env with LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET, OPENAI_API_KEY, GOLF_COURSE_API_KEY, VITE_LIVEKIT_URL
-```
+Clone the repo, copy [`.env.example`](.env.example) to `.env` at the **repository root**, and fill in values. Every local process reads that file (Vite is configured with `envDir` pointing at the root).
 
-All services (agent, token API, frontend) use this single `.env` at the project root.
+For new course guides, set **`GOLF_COURSE_API_KEY`** (sent as `Authorization: Key <key>`). Missing or invalid keys surface as errors from the guide service, not a silent fallback.
 
-**Required for generating a new yardage book:** `GOLF_COURSE_API_KEY` from [Golf Course API](https://golfcourseapi.com). The service sends it as header `Authorization: Key <your-key>` (the env value is only the key). There is no LLM-only fallback; bad or missing keys return **401** (or other errors) from `POST /ensure-guide`.
+### First-time install
 
-### 2. One command — all local services
-
-From the **repository root**, install tooling once, then start Course Guide API, token server, Vite, and the LiveKit agent together:
+From the repo root:
 
 ```bash
+npm install
 cd frontend && npm install && cd ..
 cd agent && uv sync && cd ..
-npm install
-npm run dev
 ```
 
-Or equivalently: `npm start`. Logs are prefixed with `[guide]`, `[api]`, `[vite]`, `[agent]`. Stop everything with **Ctrl+C** (if one process exits with an error, the others are stopped when using `npm run dev`).
+You need **`uv`** on your PATH for the Python services. Optional: `pip install .` inside `agent/` instead of `uv sync`.
 
-Requires **Node.js** and **uv** on your PATH. Optional: set `GUIDE_SERVICE_URL` in `.env` if the guide service is not on `http://127.0.0.1:8765`.
-
-**Logs:** `POST /ensure-guide` and Golf Course API steps are logged at INFO (errors at WARNING/ERROR). Set `LOG_LEVEL=DEBUG` for more verbose output.
-
-### 3. Course Guide Service only (optional manual run)
-
-If you prefer separate terminals:
+### Run all services
 
 ```bash
-cd agent
-uv sync
-uv run uvicorn aicaddy.guide.service_app:app --app-dir src --host 127.0.0.1 --port 8765
+npm start
 ```
 
-### 4. Agent (Python)
+(`npm start` runs `npm run dev`.) This starts four processes with prefixed logs: **`[guide]`** Course Guide API, **`[api]`** token server, **`[vite]`** dev server, **`[agent]`** LiveKit worker. Stop everything with **Ctrl+C**; `concurrently` is run with `-k` so one exit stops the others.
+
+Open the app at the URL Vite prints (usually **http://localhost:5173**). The Vite dev server proxies `/api/*` to the token API on **3001**.
+
+Set **`GUIDE_SERVICE_URL`** in `.env` only if the guide is not on `http://127.0.0.1:8765` (e.g. remote Fly backend).
+
+### Run each service on its own
+
+Use separate terminals if you want to start, restart, or debug one piece at a time. The guide and agent must use the **same** `agent/data/courses/` and `agent/vector_store/` on disk (splitting them across machines without shared storage breaks RAG).
+
+**1. Course Guide (FastAPI)** — builds PDFs and Chroma for `POST /ensure-guide` at **http://127.0.0.1:8765**.
 
 ```bash
-cd agent
-# Install (with uv)
-uv sync
-
-# Or with pip
-pip install .
-
-# Per-course guides are written under agent/data/courses/ by the Course Guide Service
-
-# Run locally (loads .env from project root)
-uv run src/agent.py dev
-# Or: python -m src.agent dev
+cd agent && uv sync && uv run uvicorn aicaddy.guide.service_app:app --app-dir src --host 127.0.0.1 --port 8765
 ```
 
-**Deployment note:** The agent and Course Guide Service must share the same `agent/data/courses/` and `agent/vector_store/` storage (e.g. shared volume). If the guide service ran only on your laptop and the agent runs in LiveKit Cloud, indexes will not match.
+**2. Token API (Node)** — `/api/token`, `/api/nearby-courses`, `/api/ensure-guide` (proxies to `GUIDE_SERVICE_URL` or `http://127.0.0.1:8765`). **http://127.0.0.1:3001**
 
-#### Deploy Course Guide Service (persistent disk)
+```bash
+cd frontend && npm install && node api-server.js
+```
 
-The guide is a **separate** FastAPI app. In production it needs **durable storage** for PDFs and Chroma (`vector_store` SQLite). Set **`OPENAI_API_KEY`** and **`GOLF_COURSE_API_KEY`** on the host (Fly secrets, container env, etc.); do not put them on Vercel.
+**3. Frontend (Vite)** — React app; `/api` is proxied to port 3001. Dev URL is usually **http://localhost:5173**.
 
-**Layout on disk:** Either use the default paths under `agent/` (local dev) or point a single volume at **`AICADDY_PERSIST_ROOT`** (creates `courses/` and `vector_store/` inside it). Per-path overrides: `AICADDY_COURSES_DIR`, `AICADDY_VECTOR_STORE_DIR` (see [`.env.example`](.env.example)).
+```bash
+cd frontend && npm install && npm run dev
+```
 
-**Docker (named volume):** from repo root, with root `.env` containing the two API keys:
+**4. Voice agent (Python)** — LiveKit worker (reads root `.env`).
+
+```bash
+cd agent && uv sync && uv run src/agent.py dev
+```
+
+**Course Guide only, via Docker** (named volume for `courses/` + `vector_store/`):
 
 ```bash
 docker compose -f agent/docker-compose.guide.yml --env-file .env up --build
 ```
 
-**Fly.io:** see [`agent/fly.toml`](agent/fly.toml) header comments. Create the app, create a volume named `guide_data` (must match the mount `source`), set secrets (including LiveKit keys for the worker), then:
-
-```bash
-cd agent
-fly deploy
-```
-
-[`agent/fly.toml`](agent/fly.toml) deploys **guide + LiveKit worker** on **one Machine** via [`agent/Dockerfile.fly`](agent/Dockerfile.fly) and [`agent/fly-entrypoint.sh`](agent/fly-entrypoint.sh); both use `AICADDY_PERSIST_ROOT=/data` on the shared volume. Only the guide port (8765) is exposed through Fly’s HTTP proxy.
-
-**Guide only:** [`agent/fly.guide.toml`](agent/fly.guide.toml) + [`agent/Dockerfile.guide`](agent/Dockerfile.guide): `fly deploy --config fly.guide.toml`.
-
-Rename `app` in the chosen `fly*.toml` to your Fly app name before the first deploy. Point Vercel **`GUIDE_SERVICE_URL`** at the public HTTPS origin (e.g. `https://<app>.fly.dev`).
-
-### 5. Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Vite loads `.env` from the project root. Ensure `VITE_LIVEKIT_URL` is set there.
-
-### 6. Token API (local dev)
-
-In another terminal:
-
-```bash
-cd frontend
-node api-server.js
-```
-
-Loads `.env` from the project root. Serves `/api/token`, `/api/nearby-courses`, and `/api/ensure-guide` (proxies to the Course Guide Service; proxied by Vite to `localhost:3001`).
+See [Production hosting](#production-hosting) for deployed backends.
 
 ---
 
-## Deploy to Vercel
+## Production hosting
 
-1. Connect the repo to Vercel; set root to `frontend`.
-2. **Environment variables** — use the repo root **`.env`** (or [`.env.example`](.env.example)) as the checklist of **names**; copy values into Vercel’s project settings (do not commit `.env`).
+The app is **deployed**: the React app and serverless routes live on **Vercel** (project root `frontend`); the **Course Guide Service** and **LiveKit worker** run together on **Fly.io**; **LiveKit Cloud** handles rooms and media.
 
-   | Name | On Vercel? | Role |
-   |------|------------|------|
-   | `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | Yes | `/api/token` |
-   | `VITE_LIVEKIT_URL` | Yes (build-time) | Browser WebSocket URL to LiveKit |
-   | `GUIDE_SERVICE_URL` | **Yes** for course prep | Server-side only. Set to the **public HTTPS origin** of your Course Guide Service (e.g. `https://guide.example.com`). `/api/ensure-guide` forwards `POST` JSON to `{GUIDE_SERVICE_URL}/ensure-guide`. |
+**Fly.io backend** — One Machine in **`sjc`** runs [`agent/Dockerfile.fly`](agent/Dockerfile.fly) with [`agent/fly-entrypoint.sh`](agent/fly-entrypoint.sh): the FastAPI guide listens on **8765** (only public HTTP port), and `agent.py start` runs as a second process on the same VM. Both use **`AICADDY_PERSIST_ROOT=/data`** backed by a Fly volume (**`guide_data`** → `/data`) so PDFs and Chroma stay on disk. Fly app name in [`agent/fly.toml`](agent/fly.toml) is **`aicaddy-backend`** (public origin e.g. `https://aicaddy-backend.fly.dev`). App secrets include **`LIVEKIT_URL`**, **`LIVEKIT_API_KEY`**, **`LIVEKIT_API_SECRET`**, **`OPENAI_API_KEY`**, **`GOLF_COURSE_API_KEY`**, and **`CADDY_VOICE_INFERENCE`** — `fly deploy` does **not** upload the repo `.env`; those must be set with `fly secrets set`.
 
-   **Not** on Vercel (use on the guide host / LiveKit worker instead): `OPENAI_API_KEY`, `GOLF_COURSE_API_KEY`, `LIVEKIT_URL`, `CADDY_VOICE_INFERENCE` — see `.env.example` comments.
+**Why one image and a shell entrypoint** — Fly’s `[processes]` groups are usually scaled as separate Machines, which would **not** share one volume. This repo uses a **single CMD** that starts both processes so they see the same `/data`.
 
-3. Deploy. Serverless routes: `/api/token`, `/api/nearby-courses`, `/api/ensure-guide`.
-
----
-
-## Deploy Agent to LiveKit Cloud
-
-```bash
-cd agent
-lk cloud auth   # if not already
-lk agent deploy
-```
-
-Or use AWS ECS with the included Dockerfile.
+**Vercel** — **`GUIDE_SERVICE_URL`** is set to the Fly HTTPS origin (no path) so `/api/ensure-guide` proxies to `POST …/ensure-guide`. **`LIVEKIT_*`** and **`VITE_LIVEKIT_URL`** match the same LiveKit project as the worker. Sensitive keys used only by the guide/worker stay off Vercel; see [`.env.example`](.env.example).
 
 ---
 
@@ -197,7 +139,7 @@ Or use AWS ECS with the included Dockerfile.
 | **Course guide generation** | Separate **Course Guide Service**; lookup-first. **Golf Course API required** for hole data; 401/403 halts with an error (no fallback). LLM expands per-hole yardage text only. PDF per course; index rebuilt from PDF if PDF exists but Chroma is empty. |
 | **Club yardages** | Voice (tool). Stored in `userProfile`. Pushed to frontend via LiveKit data channel; frontend saves to `localStorage`. |
 | **Tool call** | `get_nearby_golf_courses` uses Overpass + Nominatim |
-| **Hosting** | Frontend + token + nearby-courses + ensure-guide proxy on Vercel; agent on LiveKit Cloud or AWS ECS |
+| **Hosting** | Vercel (frontend + `/api/*`); Fly.io (guide + worker, shared volume); LiveKit Cloud for media. Alternatives: `lk agent deploy`, ECS |
 | **Mobile** | Mobile-first layout; touch targets, safe areas, readable transcript |
 
 ---
@@ -206,7 +148,7 @@ Or use AWS ECS with the included Dockerfile.
 
 ```
 AICaddyVoiceAgent/
-├── package.json         # npm run dev — starts guide API, api-server, Vite, agent (concurrently)
+├── package.json         # npm start — guide, token API, Vite, agent (concurrently)
 ├── agent/               # Python LiveKit agent + Course Guide Service
 │   ├── Dockerfile.guide # Production image for FastAPI guide only
 │   ├── Dockerfile.fly   # Fly: guide + LiveKit worker (shared /data)
